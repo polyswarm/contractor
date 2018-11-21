@@ -23,7 +23,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'deployer=deployer.__main__:main',
+            'deployer=deployer.__main__:cli',
         ],
     },
 )

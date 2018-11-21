@@ -7,6 +7,7 @@ __pycache__/
 .tox
 *.egg-info/
 tests/.hypothesis/
+build/
 
 # Ignored Read the Docs assets
 _build
