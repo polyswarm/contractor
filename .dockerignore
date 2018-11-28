@@ -5,3 +5,9 @@ venv/
 __pycache__/
 .pytest_cache
 .tox
+build/
+consul/
+homechain.json
+sidechain.json
+config.yml
+keyfile

@@ -1,7 +1,10 @@
 import json
+import logging
 import os
 
 from solc import install_solc, compile_standard
+
+logger = logging.getLogger(__name__)
 
 
 def __compiler_input_from_directory(src_dir, ext_dir=None):
@@ -13,6 +16,8 @@ def __compiler_input_from_directory(src_dir, ext_dir=None):
 
             with open(os.path.join(root, file), 'r') as f:
                 sources[file] = f.read()
+
+    logger.info('Compiling %s', ', '.join(sources.keys()))
 
     remappings = []
     if ext_dir:
@@ -27,6 +32,7 @@ def __compiler_input_from_directory(src_dir, ext_dir=None):
                 'enabled': True,
                 'runs': 200,
             },
+            # XXX: We might not need all of these, definitely require abi and bytecode object though
             'outputSelection': {
                 '*': {
                     '*': [
@@ -51,17 +57,38 @@ def __compiler_input_from_directory(src_dir, ext_dir=None):
 
 
 def __write_compiler_output(output, source_files, out_dir):
+    is_dirty = False
+
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
     contracts = output['contracts']
     for source_file in source_files:
         out_file = os.path.join(out_dir, os.path.splitext(source_file)[0] + '.json')
-        with open(out_file, 'w') as f:
-            f.write(json.dumps(contracts[source_file], indent=2, sort_keys=True))
 
+        # Restructure this for compatibility with polyswarmd et al
+        name = next(iter(contracts[source_file]))
+        contract = contracts[source_file][name]
+        contract['contractName'] = name
+
+        # Attempt to match bytecode to see if we need to redeploy
+        if not os.path.exists(out_file):
+            is_dirty = True
+        else:
+            with open(out_file, 'r') as f:
+                orig_contract = json.load(f)
+                if orig_contract != contract:
+                    is_dirty = True
+
+        logger.info('Writing %s', out_file)
+        with open(out_file, 'w') as f:
+            json.dump(contract, f, indent=2, sort_keys=True)
+
+    return is_dirty
 
 def compile_directory(src_dir, out_dir, ext_dir=None, solc_version='v0.4.25'):
+    # py-solc lets us select a version of the compiler to use, which is nice,
+    # but requires some massaging to actually use it
     solc_path = os.path.expanduser('~/.py-solc/solc-{0}/bin/solc'.format(solc_version))
     if not os.path.isfile(solc_path):
         install_solc(solc_version)
@@ -74,4 +101,6 @@ def compile_directory(src_dir, out_dir, ext_dir=None, solc_version='v0.4.25'):
     input = __compiler_input_from_directory(src_dir, ext_dir)
     source_files = input['sources'].keys()
     output = compile_standard(input, **kwargs)
-    __write_compiler_output(output, source_files, out_dir)
+    # TODO: Compilation errors will be reported via a SolcError, should report these in a friendlier manner
+
+    return __write_compiler_output(output, source_files, out_dir)

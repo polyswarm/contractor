@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 def parse_requirements():
@@ -17,13 +17,11 @@ setup(
     python_requires='>=3.5,<4',
     install_requires=parse_requirements(),
     include_package_data=True,
-    packages=['deployer'],
-    package_dir={
-        'deployer': 'src/deployer',
-    },
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
     entry_points={
         'console_scripts': [
-            'deployer=deployer.__main__:cli',
+            'contractor=contractor.__main__:cli',
         ],
     },
 )

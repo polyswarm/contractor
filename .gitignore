@@ -6,8 +6,12 @@ __pycache__/
 .pytest_cache
 .tox
 *.egg-info/
-tests/.hypothesis/
 build/
+consul/
+homechain.json
+sidechain.json
+config.yml
+keyfile
 
 # Ignored Read the Docs assets
 _build
