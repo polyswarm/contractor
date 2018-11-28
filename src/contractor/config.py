@@ -12,7 +12,7 @@ class Chain(Enum):
     @staticmethod
     def from_str(s):
         if s.lower() == 'home':
-            return Chain.SIDECHAIN
+            return Chain.HOMECHAIN
         elif s.lower() == 'side':
             return Chain.SIDECHAIN
         else:
@@ -20,13 +20,14 @@ class Chain(Enum):
 
 
 class NetworkConfig(object):
-    def __init__(self, name, eth_uri, network_id, gas_limit, gas_price, timeout, chain):
+    def __init__(self, name, eth_uri, network_id, gas_limit, gas_price, timeout, contract_config, chain):
         self.name = name
         self.eth_uri = eth_uri
         self.network_id = network_id
         self.gas_limit = gas_limit
         self.gas_price = gas_price
         self.timeout =  timeout
+        self.contract_config = contract_config
         self.chain = chain
 
         self.w3 = None
@@ -42,15 +43,15 @@ class NetworkConfig(object):
         self.account = self.w3.eth.account.privateKeyToAccount(self.priv_key).address
 
     @classmethod
-    def from_dict(cls, d, chain):
-        name = d.get('name')
+    def from_dict(cls, d, name, chain):
         eth_uri = d.get('eth_uri')
         network_id = d.get('network_id')
         gas_limit = d.get('gas_limit')
         gas_price = d.get('gas_price')
         timeout = d.get('timeout', 240)
+        contract_config = d.get('contracts', {})
 
-        return cls(name, eth_uri, network_id, gas_limit, gas_price, timeout, chain)
+        return cls(name, eth_uri, network_id, gas_limit, gas_price, timeout, contract_config, chain)
 
     def validate(self):
         pass
@@ -92,7 +93,7 @@ class Config(object):
 
     @classmethod
     def from_dict(cls, d, chain):
-        networks = {k: NetworkConfig.from_dict(v, chain) for k, v in d.get('networks', {}).items()}
+        networks = {k: NetworkConfig.from_dict(v, k, chain) for k, v in d.get('networks', {}).items()}
         users = d.get('users', [])
 
         return cls(networks, users)

@@ -26,6 +26,9 @@ class Step(object, metaclass=__MetaRegistry):
     def run(self, network, deployer):
         pass
 
+    def validate(self, network):
+        return True
+
 
 def run_steps(network, deployer):
     # Load all our submodules so they get registered
@@ -36,6 +39,10 @@ def run_steps(network, deployer):
     ordered_steps = [(k, REGISTRY[k]()) for k in toposort_flatten(depgraph)]
 
     logger.info('Deployment order: %s', ', '.join([x[0] for x in ordered_steps]))
+
+    for name, step in ordered_steps:
+        if not step.validate(network):
+            raise ValueError('Preconditions not met for contract {}, check config'.format(name))
 
     for name, step in ordered_steps:
         logger.info('Running deployment for %s', name)

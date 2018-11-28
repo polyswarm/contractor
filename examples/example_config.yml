@@ -1,0 +1,34 @@
+networks:
+    homechain:
+        eth_uri: http://localhost:8545
+        network_id: 1337
+        gas_limit: 7000000
+        gas_price: 0
+        timeout: 240
+        contracts:
+            NectarToken:
+                address: "0x0000000000000000000000000000000000000000"
+            BountyRegistry:
+                # 7 days in blocks
+                arbiter_vote_window: 40320
+            ERC20Relay:
+                fee_wallet: "0x0000000000000000000000000000000000000000"
+                verifiers:
+                    - "0x0000000000000000000000000000000000000000"
+                    - "0x0000000000000000000000000000000000000001"
+                    - "0x0000000000000000000000000000000000000002"
+
+    sidechain:
+        eth_uri: http://localhost:7545
+        network_id: 1338
+        gas_limit: 7000000
+        gas_price: 0
+        timeout: 240
+    rinkeby:
+        eth_uri: http://rinkeby:8545
+        network_id: 4
+        gas_limit: 7000000
+        gas_price: 20000000000
+        timeout: 600
+users:
+    - "0x0000000000000000000000000000000000000000"
