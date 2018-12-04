@@ -2,11 +2,11 @@ import click
 import logging
 import sys
 
+from contractor import db, steps
 from contractor.compiler import compile_directory
 from contractor.config import Config, Chain
 from contractor.consul import ConsulClient
 from contractor.deployer import Deployer
-from contractor.steps import run_steps
 
 
 @click.group()
@@ -36,6 +36,8 @@ def compile(ctx, srcdir, external, outdir):
 @cli.command()
 @click.option('--config', type=click.File('r'), required=True,
               help='Path to yaml config file defining networks and users')
+@click.option('--community', required=True,
+              help='What community we are deploying for')
 @click.option('--network', required=True,
               help='What network to deploy to')
 @click.option('--keyfile', type=click.File('r'), required=True,
@@ -44,20 +46,28 @@ def compile(ctx, srcdir, external, outdir):
               help='Password used to decrypt private key')
 @click.option('--chain', type=click.Choice(('home', 'side')), required=True,
               help='Is this deployment on the homechain or sidechain?')
+@click.option('--db-uri', envvar='DB_URI',
+              help='URI for the deployment database')
+@click.option('--git/--no-git', default=True,
+              help='Record git commit hash and tree status, assumes artifactdir is in repository')
 @click.option('-i', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
               help='Directory containing the compiled artifacts to deploy')
 @click.option('-o', '--output', type=click.Path(dir_okay=False, writable=True), required=False,
               help='File to output deployment results json to')
 @click.pass_context
-def deploy(ctx, config, network, keyfile, password, chain, artifactdir, output):
+def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, git, artifactdir, output):
     config = Config.from_yaml(config, Chain.from_str(chain))
 
     network = config.networks[network]
     network.connect(keyfile, password)
 
-    deployer = Deployer(network, artifactdir)
+    session = None
+    if db_uri is not None:
+        session = db.connect(db_uri)
 
-    run_steps(network, deployer)
+    deployer = Deployer(community, network, artifactdir, record_git_status=git, session=session)
+
+    steps.run(network, deployer)
 
     # Default to homechain.json/sidechain.json
     if not output:
@@ -66,10 +76,12 @@ def deploy(ctx, config, network, keyfile, password, chain, artifactdir, output):
     with open(output, 'w') as f:
         deployer.dump_results(f)
 
+
 @cli.group()
 @click.pass_context
 def consul(ctx):
     pass
+
 
 @consul.command()
 @click.option('-u', '--consul-uri', envvar='CONSUL', required=True,
@@ -85,6 +97,7 @@ def pull(ctx, consul_uri, consul_token, community, outdir):
     c = ConsulClient(consul_uri, consul_token)
     c.pull_config(community, outdir)
 
+
 @consul.command()
 @click.option('-u', '--consul-uri', envvar='CONSUL', required=True,
               help='URI for consul')
@@ -98,6 +111,7 @@ def pull(ctx, consul_uri, consul_token, community, outdir):
 def push(ctx, consul_uri, consul_token, community, indir):
     c = ConsulClient(consul_uri, consul_token)
     c.push_config(community, indir)
+
 
 if __name__ == '__main__':
     cli(obj={})

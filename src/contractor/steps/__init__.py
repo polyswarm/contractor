@@ -30,7 +30,7 @@ class Step(object, metaclass=__MetaRegistry):
         return True
 
 
-def run_steps(network, deployer):
+def run(network, deployer):
     # Load all our submodules so they get registered
     for importer, modname, ispkg in pkgutil.iter_modules(sys.modules[__name__].__path__):
         importer.find_module(modname).load_module(modname)

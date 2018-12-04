@@ -1,16 +1,33 @@
 import json
 import logging
 import os
+import re
+
+from contractor.db import Deployment, Contract
+from contractor.git import get_git_status
+from hexbytes import HexBytes
 
 logger = logging.getLogger(__name__)
 
 
+# For polyswarmd compatibility
+# https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
+def camel_case_to_snake_case(s):
+    s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', s)
+    return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+
 class Deployer(object):
-    def __init__(self, network, artifactsdir):
+    def __init__(self, community, network, artifactsdir, record_git_status=False, session=None):
+        self.__community = community
         self.__network = network
-        self.__scan_artifacts(artifactsdir)
+        self.__session = session
 
         self.contracts = {}
+        self.deployment = None
+
+        self.__scan_artifacts(artifactsdir)
+        self.__record_deployment(record_git_status, artifactsdir)
 
     def __scan_artifacts(self, artifact_dir):
         self.artifacts = {}
@@ -25,13 +42,49 @@ class Deployer(object):
 
             self.artifacts[name] = j
 
-    def at(self, name, address):
+    def __record_deployment(self, record_git_status, artifactsdir):
+        if self.__session is not None:
+            commit_hash = tree_dirty = None
+            if record_git_status:
+                commit_hash, tree_dirty = get_git_status(artifactsdir)
+
+            self.deployment = Deployment(self.__community, self.__network.name, self.__network.network_id,
+                                         self.__network.chain, commit_hash=commit_hash, tree_dirty=tree_dirty)
+            self.__session.add(self.deployment)
+            self.__session.commit()
+
+    def __record_contract(self, name, deployed):
+        if self.__session is not None and self.deployment is not None:
+            contract_obj = self.contracts[name]
+
+            contract = Contract(self.deployment, name, deployed, contract_obj.address, contract_obj.abi,
+                                contract_obj.bytecode, self.__network.contract_config.get(name, {}))
+            self.__session.add(contract)
+            self.__session.commit()
+
+    def __mark_deployment_success(self):
+        if self.__session is not None and self.deployment is not None:
+            # Mark any nondeployed contracts as built but not deployed
+            nondeployed = {name for name in self.artifacts if name not in self.contracts}
+            for name in nondeployed:
+                abi = self.artifacts[name]['abi']
+                bytecode = HexBytes(self.artifacts[name]['evm']['bytecode']['object'])
+                contract = Contract(self.deployment, name, False, None, abi, bytecode,
+                                    self.__network.contract_config.get(name, {}))
+                self.__session.add(contract)
+
+            self.deployment.succeeded = True
+            self.__session.commit()
+
+    def at(self, name, address, deployed=False):
         artifact = self.artifacts.get(name)
         if artifact is None:
             raise ValueError('No artifact {} in artifacts, have you compiled?'.format(name))
 
-        contract = self.__network.w3.eth.contract(address=address, abi=artifact['abi'])
+        contract = self.__network.w3.eth.contract(address=address, abi=artifact['abi'],
+                                                  bytecode=artifact['evm']['bytecode']['object'])
         self.contracts[name] = contract
+        self.__record_contract(name, deployed)
 
         return contract
 
@@ -46,21 +99,19 @@ class Deployer(object):
         if artifact is None:
             raise ValueError('Artifact {} not found, have you compiled?'.format(name))
 
-        contract = self.__network.w3.eth.contract(abi=artifact['abi'], bytecode=artifact['evm']['bytecode']['object'])
+        contract = self.__network.w3.eth.contract(abi=artifact['abi'],
+                                                  bytecode=artifact['evm']['bytecode']['object'])
         call = contract.constructor(*args, **kwargs)
 
         logger.info('Deploying %s', name)
 
         txhash = self.transact(call, txopts)
-        receipt = self.__network.wait_for_transaction(txhash)
+        receipt = self.__network.wait_and_check_transaction(txhash)
 
         address = receipt.contractAddress
-
-        # TODO: Record deployment in persistent db
         logger.info('Deployed %s to %s', name, address)
 
-        return self.at(name, address)
-
+        return self.at(name, address, deployed=True)
 
     def transact(self, call, txopts={}):
         opts = dict(self.__network.txopts)
@@ -71,13 +122,23 @@ class Deployer(object):
         return self.__network.send_transaction(signed_tx)
 
     def dump_results(self, f):
+        self.__mark_deployment_success()
+
+        results = {camel_case_to_snake_case(name) + '_address': contract.address
+                   for name, contract in self.contracts.items()}
+
+        results['eth_uri'] = self.__network.eth_uri
+        # XXX: Difference between these is subtle but irrelevant for our purposes
+        results['chain_id'] = self.__network.network_id
+        results['free'] = self.__network.gas_price == 0
+
         logger.info('Dumping deployment results to json')
-        json.dump({name: contract.address for name, contract in self.contracts.items()}, f)
+        logger.debug('Deployment results: %s', json.dumps(results))
+        json.dump(results, f)
 
     def load_results(self, f):
-        logger.info('Loading deployment results to json')
+        logger.info('Loading deployment results from json')
 
         deployment_results = json.load(f)
         for name, address in deployment_results.items():
             self.at(name, address)
-

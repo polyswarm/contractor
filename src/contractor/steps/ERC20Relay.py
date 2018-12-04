@@ -30,7 +30,7 @@ class ERC20Relay(Step):
         elif network.chain == Chain.SIDECHAIN:
             logger.info('Minting NCT equal to total supply to relay contract %s on sidechain', contract.address)
             txhash = deployer.transact(deployer.contracts['NectarToken'].functions.mint(contract.address, TOTAL_SUPPLY))
-            network.wait_for_transaction(txhash)
+            network.wait_and_check_transaction(txhash)
 
     def validate(self, network):
         contract_config = network.contract_config.get(CONTRACT_NAME, {})

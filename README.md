@@ -19,7 +19,7 @@ Can also pull configs to take advantange of bytecode detection
 
 ## Persistent deployment records
 
-TODO
+Pass `--db-uri` or set the environment variable `DB_URI`, deployments will be recorded along with contract ABI, bytecode, and other relevant data.
 
 ## Config format
 

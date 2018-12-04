@@ -20,4 +20,4 @@ class BountyRegistry(Step):
 
         logger.info('Setting ArbiterStaking\'s BountyRegistry instance to %s', contract.address)
         txhash = deployer.transact(deployer.contracts['ArbiterStaking'].functions.setBountyRegistry(contract.address))
-        network.wait_for_transaction(txhash)
+        network.wait_and_check_transaction(txhash)

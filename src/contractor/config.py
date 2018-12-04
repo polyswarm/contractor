@@ -26,7 +26,7 @@ class NetworkConfig(object):
         self.network_id = network_id
         self.gas_limit = gas_limit
         self.gas_price = gas_price
-        self.timeout =  timeout
+        self.timeout = timeout
         self.contract_config = contract_config
         self.chain = chain
 
@@ -43,13 +43,16 @@ class NetworkConfig(object):
         self.account = self.w3.eth.account.privateKeyToAccount(self.priv_key).address
 
     @classmethod
-    def from_dict(cls, d, name, chain):
+    def from_dict(cls, d, name, default_contract_config, chain):
         eth_uri = d.get('eth_uri')
         network_id = d.get('network_id')
         gas_limit = d.get('gas_limit')
         gas_price = d.get('gas_price')
         timeout = d.get('timeout', 240)
-        contract_config = d.get('contracts', {})
+
+        # Copy default contract config and apply any overrides if applicable
+        contract_config = dict(default_contract_config)
+        contract_config.update(d.get('contracts', {}))
 
         return cls(name, eth_uri, network_id, gas_limit, gas_price, timeout, contract_config, chain)
 
@@ -73,6 +76,7 @@ class NetworkConfig(object):
     def send_transaction(self, signed_tx):
         return self.w3.eth.sendRawTransaction(signed_tx.rawTransaction)
 
+    # Helper methods for waiting for a tx to be mined and checking its status
     def wait_for_transaction(self, txhash):
         return self.w3.eth.waitForTransactionReceipt(txhash, timeout=self.timeout)
 
@@ -83,20 +87,42 @@ class NetworkConfig(object):
             ret.append(self.wait_for_transaction(txhash))
         return ret
 
+    def check_transaction(self, txhash):
+        tx = self.w3.eth.getTransaction(txhash)
+        receipt = self.w3.eth.getTransactionReceipt(txhash)
+
+        return receipt is not None and receipt['gasUsed'] < tx['gas'] and receipt['status'] == 1
+
+    def check_transactions(self, txhashes):
+        return all([self.check_transaction(txhash) for txhash in txhashes])
+
+    def wait_and_check_transaction(self, txhash):
+        receipt = self.wait_for_transaction(txhash)
+        if not self.check_transaction(txhash):
+            raise Exception('Transaction {0} failed, check network state', txhash)
+        return receipt
+
+    def wait_and_check_transactions(self, txhashes):
+        receipts = self.wait_for_transactions(txhashes)
+        if not self.check_transactions(txhashes):
+            raise Exception('Transaction failed, check network state')
+        return receipts
+
 
 class Config(object):
-    def __init__(self, networks, users):
+    def __init__(self, networks, default_contract_config):
         self.networks = networks
-        self.users = users
+        self.default_contract_config = default_contract_config
 
         self.validate()
 
     @classmethod
     def from_dict(cls, d, chain):
-        networks = {k: NetworkConfig.from_dict(v, k, chain) for k, v in d.get('networks', {}).items()}
-        users = d.get('users', [])
+        default_contract_config = d.get('contracts', {})
+        networks = {k: NetworkConfig.from_dict(v, k, default_contract_config, chain) for k, v in
+                    d.get('networks', {}).items()}
 
-        return cls(networks, users)
+        return cls(networks, default_contract_config)
 
     @classmethod
     def from_yaml(cls, f, chain):
