@@ -4,6 +4,8 @@ Deploy contracts without truffle
 
 Clone with `--recursive` or run `git submodule update --init --recursive` to fetch all submodules
 
+Build docker image with `docker build -t polyswarm/contractor -f docker/Dockerfile .` from repository root
+
 ## Compiling
 
 Compile contracts with `contractor compile`, command returns non-zero on any compilation error or if no modifications to bytecode detected

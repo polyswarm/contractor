@@ -30,17 +30,17 @@ def compile(ctx, srcdir, external, outdir):
     # If there are no contract changes, exit with failure to signal to not attempt a redeploy
     if not is_dirty:
         logging.info('No contract differences detected, exiting with failure')
-        sys.exit(1)
+        sys.exit(2)
 
 
 @cli.command()
-@click.option('--config', type=click.File('r'), required=True,
+@click.option('--config', envvar='CONFIG', type=click.File('r'), required=True,
               help='Path to yaml config file defining networks and users')
-@click.option('--community', required=True,
+@click.option('--community', envvar='COMMUNITY', required=True,
               help='What community we are deploying for')
 @click.option('--network', required=True,
               help='What network to deploy to')
-@click.option('--keyfile', type=click.File('r'), required=True,
+@click.option('--keyfile', envvar='KEYFILE', type=click.File('r'), required=True,
               help='Path to private key json file used to deploy')
 @click.option('--password', envvar='PASSWORD', prompt=True, hide_input=True,
               help='Password used to decrypt private key')
@@ -84,26 +84,28 @@ def consul(ctx):
 
 
 @consul.command()
-@click.option('-u', '--consul-uri', envvar='CONSUL', required=True,
+@click.option('-u', '--consul-uri', envvar='CONSUL_URI', required=True,
               help='URI for consul')
 @click.option('-t', '--consul-token', envvar='CONSUL_TOKEN', default='',
               help='Token for consul access')
-@click.option('-c', '--community', envvar='COMMUNITY',
+@click.option('-c', '--community', envvar='COMMUNITY', required=True,
               help='Community to access')
+@click.option('--wait/--no-wait', default=False,
+              help='Wait for key to become available')
 @click.option('-o', '--outdir', type=click.Path(file_okay=False), default='consul',
               help='Directory to store the pulled consul keys to')
 @click.pass_context
-def pull(ctx, consul_uri, consul_token, community, outdir):
+def pull(ctx, consul_uri, consul_token, community, wait, outdir):
     c = ConsulClient(consul_uri, consul_token)
-    c.pull_config(community, outdir)
+    c.pull_config(community, outdir, wait=wait)
 
 
 @consul.command()
-@click.option('-u', '--consul-uri', envvar='CONSUL', required=True,
+@click.option('-u', '--consul-uri', envvar='CONSUL_URI', required=True,
               help='URI for consul')
 @click.option('-t', '--consul-token', envvar='CONSUL_TOKEN', default='',
               help='Token for consul access')
-@click.option('-c', '--community', envvar='COMMUNITY',
+@click.option('-c', '--community', envvar='COMMUNITY', required=True,
               help='Community to access')
 @click.option('-i', '--indir', type=click.Path(exists=True, file_okay=False), default='consul',
               help='Directory containing the contents of consul keys to push')

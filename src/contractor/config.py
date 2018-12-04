@@ -1,8 +1,12 @@
+import logging
+import time
 import yaml
 
 from enum import Enum
 from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
+
+logger = logging.getLogger(__name__)
 
 
 class Chain(Enum):
@@ -29,6 +33,8 @@ class NetworkConfig(object):
         self.timeout = timeout
         self.contract_config = contract_config
         self.chain = chain
+        # XXX: Right now everything is synchronous so we don't need to lock
+        self.nonce = 0
 
         self.w3 = None
         self.priv_key = None
@@ -41,6 +47,29 @@ class NetworkConfig(object):
         self.w3.middleware_stack.inject(geth_poa_middleware, layer=0)
         self.priv_key = self.w3.eth.account.decrypt(keyfile.read(), password)
         self.account = self.w3.eth.account.privateKeyToAccount(self.priv_key).address
+        self.nonce = self.__get_nonce()
+
+        logger.info('Connected to ethereum client at %s, using account %s, nonce: %s', self.eth_uri, self.account,
+                    self.nonce)
+
+    def __get_nonce(self):
+        # getTransactionCount seems to report incorrect values upon geth startup, work around this by waiting a bit
+        logger.info('Waiting for transaction count to stabilize')
+        time.sleep(5)
+
+        last_nonce = 0
+        while True:
+            # Also include transactions in txpool
+            nonce = self.w3.eth.getTransactionCount(self.account, 'pending')
+
+            if nonce == last_nonce:
+                logger.info('Settled on transaction count %s', nonce)
+                break
+
+            last_nonce = nonce
+            time.sleep(2)
+
+        return nonce
 
     @classmethod
     def from_dict(cls, d, name, default_contract_config, chain):
@@ -59,16 +88,20 @@ class NetworkConfig(object):
     def validate(self):
         pass
 
-    @property
-    def txopts(self):
-        return {
+    def txopts(self, increment_nonce=True):
+        ret = {
             # XXX: Difference between these is subtle but irrelevant for our purposes
             'chainId': self.network_id,
             'gas': self.gas_limit,
             'gasPrice': self.gas_price,
-            # TODO: If async, need to track nonce same way as in polyswarm-client
-            'nonce': self.w3.eth.getTransactionCount(self.account),
+            'nonce': self.nonce,
         }
+
+        # XXX: Right now everything is synchronous so we don't need to lock
+        if increment_nonce:
+            self.nonce += 1
+
+        return ret
 
     def sign_transaction(self, tx):
         return self.w3.eth.account.signTransaction(tx, self.priv_key)
@@ -77,6 +110,9 @@ class NetworkConfig(object):
         return self.w3.eth.sendRawTransaction(signed_tx.rawTransaction)
 
     # Helper methods for waiting for a tx to be mined and checking its status
+    def block_number(self):
+        return self.w3.eth.blockNumber
+
     def wait_for_transaction(self, txhash):
         return self.w3.eth.waitForTransactionReceipt(txhash, timeout=self.timeout)
 

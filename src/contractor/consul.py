@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -7,6 +8,9 @@ from consul.base import Timeout
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+INITIAL_WAIT='5s'
+LONG_WAIT='2m'
 
 
 class ConsulClient(object):
@@ -18,17 +22,24 @@ class ConsulClient(object):
         logger.info('Fetching key: %s', key)
         while True:
             try:
-                index, data = self.client.kv.get(key, recurse=recurse, index=index, wait='2m')
+                index, data = self.client.kv.get(key, recurse=recurse, index=index, wait=LONG_WAIT)
                 if data is not None:
                     return data
             except Timeout:
                 logger.info('Consul key %s not available, retrying...', key)
                 continue
 
-    def pull_config(self, community, out_dir):
+    def pull_config(self, community, out_dir, wait=True):
         # TODO: Should `chain/foo` really be `community/foo`?
         key = 'chain/{}/'.format(community)
-        values = self.__fetch_from_consul_or_wait(key, recurse=True)
+        index, values = self.client.kv.get(key, recurse=True, index=0, wait=INITIAL_WAIT)
+        if values is None and wait:
+            logger.info('Waiting for consul key %s to become available', key)
+            values = self.__fetch_from_consul_or_wait(key, recurse=True, index=index)
+
+        if values is None:
+            logger.info('Consul key %s is not available, continuing', key)
+            return
 
         if not os.path.isdir(out_dir):
             os.makedirs(out_dir, exist_ok=True)
@@ -38,21 +49,42 @@ class ConsulClient(object):
 
             logger.info('Writing %s', filename)
             with open(filename, 'w') as f:
-                f.write(str(value['Value']))
+                f.write(value['Value'].decode('utf-8'))
 
     def push_config(self, community, in_dir):
         # TODO: Should `chain/foo` really be `community/foo`?
         base_key = 'chain/{}/'.format(community)
 
+        # Write the contract keys first outside of transaction to avoid consul size limits
+        written = set()
+        for root, dirs, files in os.walk(in_dir):
+            for file in files:
+                key = base_key + os.path.splitext(file)[0]
+                filename = os.path.join(root, file)
+
+                with open(filename, 'r') as f:
+                    value = json.load(f)
+
+                # This is a contract
+                if 'abi' in value and 'contractName' in value:
+                    logger.info('Pushing contents of %s to consul', filename)
+                    self.client.kv.put(key, json.dumps(value))
+                    written.add(filename)
+
         ops = []
         for root, dirs, files in os.walk(in_dir):
             for file in files:
+                key = base_key + os.path.splitext(file)[0]
                 filename = os.path.join(root, file)
+
+                if filename in written:
+                    continue
+
                 logger.info('Adding contents of %s to transaction', filename)
 
                 with open(filename, 'rb') as f:
                     value = b64encode(f.read()).decode('utf-8')
-                    ops.append((base_key + os.path.splitext(file)[0], value))
+                    ops.append((key, value))
 
         # Transform ops into a transaction that consul expects
         tx = [{

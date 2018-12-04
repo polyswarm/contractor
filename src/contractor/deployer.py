@@ -47,6 +47,13 @@ class Deployer(object):
             commit_hash = tree_dirty = None
             if record_git_status:
                 commit_hash, tree_dirty = get_git_status(artifactsdir)
+                logger.info('Recording deployment in database, commit_hash: %s, tree_dirty: %s', commit_hash,
+                            tree_dirty)
+
+                if tree_dirty:
+                    logger.warning('Deploying with a dirty tree, may make tracking contract source difficult')
+            else:
+                logger.info('Recording deployment in database')
 
             self.deployment = Deployment(self.__community, self.__network.name, self.__network.network_id,
                                          self.__network.chain, commit_hash=commit_hash, tree_dirty=tree_dirty)
@@ -56,6 +63,7 @@ class Deployer(object):
     def __record_contract(self, name, deployed):
         if self.__session is not None and self.deployment is not None:
             contract_obj = self.contracts[name]
+            logger.info('Recording contract %s:%s in database', name, contract_obj.address)
 
             contract = Contract(self.deployment, name, deployed, contract_obj.address, contract_obj.abi,
                                 contract_obj.bytecode, self.__network.contract_config.get(name, {}))
@@ -67,6 +75,8 @@ class Deployer(object):
             # Mark any nondeployed contracts as built but not deployed
             nondeployed = {name for name in self.artifacts if name not in self.contracts}
             for name in nondeployed:
+                logger.info('Recording non-deployed contract %s in database', name)
+
                 abi = self.artifacts[name]['abi']
                 bytecode = HexBytes(self.artifacts[name]['evm']['bytecode']['object'])
                 contract = Contract(self.deployment, name, False, None, abi, bytecode,
@@ -114,7 +124,7 @@ class Deployer(object):
         return self.at(name, address, deployed=True)
 
     def transact(self, call, txopts={}):
-        opts = dict(self.__network.txopts)
+        opts = dict(self.__network.txopts())
         opts.update(txopts)
 
         tx = call.buildTransaction(opts)

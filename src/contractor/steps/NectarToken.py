@@ -21,6 +21,9 @@ class NectarToken(Step):
         else:
             deployer.deploy(CONTRACT_NAME)
 
+        txhash = deployer.transact(deployer.contracts['NectarToken'].functions.enableTransfers())
+        network.wait_and_check_transaction(txhash)
+
         # Take mint requests MINT_STRIDE users at a time
         for i, group in enumerate(zip_longest(*(iter(users),) * MINT_STRIDE)):
             group = filter(None, group)
