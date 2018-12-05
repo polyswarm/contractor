@@ -1,7 +1,7 @@
 import logging
 
 from contractor.steps import Step
-from contractor.config import Chain
+from contractor.network import Chain
 
 logger = logging.getLogger(__name__)
 

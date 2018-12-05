@@ -1,7 +1,7 @@
 import hashlib
 import logging
 
-from contractor.config import Chain
+from contractor.network import Chain
 from datetime import datetime
 from sqlalchemy import create_engine, Boolean, Column, DateTime, Enum, ForeignKey, JSON, LargeBinary, Integer, String
 from sqlalchemy.orm import relationship, scoped_session, sessionmaker

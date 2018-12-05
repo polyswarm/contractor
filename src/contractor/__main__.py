@@ -4,9 +4,10 @@ import sys
 
 from contractor import db, steps
 from contractor.compiler import compile_directory
-from contractor.config import Config, Chain
+from contractor.config import Config
 from contractor.consul import ConsulClient
 from contractor.deployer import Deployer
+from contractor.network import Chain
 
 
 @click.group()
@@ -29,7 +30,7 @@ def compile(ctx, srcdir, external, outdir):
 
     # If there are no contract changes, exit with failure to signal to not attempt a redeploy
     if not is_dirty:
-        logging.info('No contract differences detected, exiting with failure')
+        click.echo('No contract differences detected, exiting with failure')
         sys.exit(2)
 
 
@@ -58,7 +59,11 @@ def compile(ctx, srcdir, external, outdir):
 def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, git, artifactdir, output):
     config = Config.from_yaml(config, Chain.from_str(chain))
 
-    network = config.networks[network]
+    if network not in config.network_configs:
+        click.echo('No such network {0} defined, check configuration', network)
+        sys.exit(1)
+
+    network = config.network_configs[network].create()
     network.connect(keyfile, password)
 
     session = None
