@@ -10,6 +10,7 @@ CONTRACT_NAME = 'ERC20Relay'
 TOTAL_SUPPLY = 1885913075851542181982426285
 # https://coinmarketcap.com/currencies/polyswarm/ retrieved on 5/28/18
 NCT_ETH_EXCHANGE_RATE = 80972
+ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
 class ERC20Relay(Step):
@@ -21,13 +22,14 @@ class ERC20Relay(Step):
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         nct_eth_exchange_rate = contract_config.get('nct_eth_exchange_rate', NCT_ETH_EXCHANGE_RATE)
         fee_wallet = contract_config.get('fee_wallet')
-        verifiers = [network.w3.toChecksumAddress(addr) for addr in contract_config.get('verifiers')]
-
-        contract = deployer.deploy(CONTRACT_NAME, nectar_token_address, nct_eth_exchange_rate, fee_wallet, verifiers)
+        verifiers = contract_config.get('verifiers')
 
         if network.chain == Chain.HOMECHAIN:
+            deployer.deploy(CONTRACT_NAME, nectar_token_address, nct_eth_exchange_rate, fee_wallet, verifiers)
             logger.info('Chain is homechain, nothing more to do')
         elif network.chain == Chain.SIDECHAIN:
+            contract = deployer.deploy(CONTRACT_NAME, nectar_token_address, 0, ZERO_ADDRESS, verifiers)
+
             logger.info('Minting NCT equal to total supply to relay contract %s on sidechain', contract.address)
             txhash = deployer.transact(deployer.contracts['NectarToken'].functions.mint(contract.address, TOTAL_SUPPLY))
             network.wait_and_check_transaction(txhash)
