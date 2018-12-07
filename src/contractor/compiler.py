@@ -4,6 +4,8 @@ import os
 
 from solc import install_solc, compile_standard
 
+DEFAULT_SOLC_VERSION = 'v0.4.25'
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,13 +88,19 @@ def __write_compiler_output(output, source_files, out_dir):
 
     return is_dirty
 
-def compile_directory(src_dir, out_dir, ext_dir=None, solc_version='v0.4.25'):
+
+def configure_compiler(solc_version):
     # py-solc lets us select a version of the compiler to use, which is nice,
     # but requires some massaging to actually use it
     solc_path = os.path.expanduser('~/.py-solc/solc-{0}/bin/solc'.format(solc_version))
     if not os.path.isfile(solc_path):
         install_solc(solc_version)
     os.environ['SOLC_BINARY'] = solc_path
+    return solc_path
+
+
+def compile_directory(solc_version, src_dir, out_dir, ext_dir=None):
+    configure_compiler(solc_version)
 
     kwargs = {}
     if ext_dir:

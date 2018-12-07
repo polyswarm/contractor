@@ -1,4 +1,4 @@
-FROM python:3.5-jessie
+FROM python:3.6-jessie
 LABEL maintainer="PolySwarm Developers <info@polyswarm.io>"
 
 ENV DOCKERIZE_VERSION v0.6.1
