@@ -15,8 +15,8 @@ from contractor.deployer import Deployer
 @pytest.fixture(scope='session')
 def artifacts():
     basedir = os.path.join(os.path.dirname(__file__), '..')
-    srcdir = os.path.join('contracts')
-    extdir = os.path.join('external')
+    srcdir = os.path.join(basedir, 'contracts')
+    extdir = os.path.join(basedir, 'external')
     outdir = tempfile.mkdtemp()
 
     compile_directory(DEFAULT_SOLC_VERSION, srcdir, outdir, extdir)
@@ -36,5 +36,5 @@ def web3():
 
 
 @pytest.fixture
-def contracts(web3, artifacts):
+def deployer(web3, artifacts):
     print(artifacts)

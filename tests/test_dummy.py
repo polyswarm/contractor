@@ -1,2 +1,2 @@
-def test_dummy(contracts):
+def test_dummy(deployer):
     pass
