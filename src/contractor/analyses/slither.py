@@ -1,7 +1,8 @@
 import os
-import subprocess
 
 from contractor.compiler import configure_compiler
+from contractor.util import call_with_output
+
 
 def slither_analyze_directory(solc_version, src_dir, ext_dir=None, excludes=[]):
     solc_path = configure_compiler(solc_version)
@@ -23,18 +24,4 @@ def slither_analyze_directory(solc_version, src_dir, ext_dir=None, excludes=[]):
         cmd.extend(('--solc-args', '--ignore-missing ' + ' '.join(remappings)))
 
     cmd.append(src_dir)
-
-    # Run command printing output in real time
-    # https://www.endpoint.com/blog/2015/01/28/getting-realtime-output-using-python
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    while True:
-        output = p.stdout.readline()
-        if not output and p.poll() is not None:
-            break
-
-        if output:
-            print(output)
-
-    return p.wait(timeout=1)
-
-
+    return call_with_output(cmd)

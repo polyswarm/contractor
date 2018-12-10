@@ -3,13 +3,12 @@ import logging
 import sys
 
 from contractor import db, steps
-from contractor.analyses.slither import slither_analyze_directory
+from contractor.analyses import slither_analyze_directory, solium_analyze_directory
 from contractor.compiler import compile_directory, DEFAULT_SOLC_VERSION
 from contractor.config import Config
 from contractor.consul import ConsulClient
 from contractor.deployer import Deployer
 from contractor.network import Chain
-
 
 
 @click.group()
@@ -57,6 +56,15 @@ def analyze(ctx):
 def slither(ctx, solc_version, srcdir, external, excludes):
     excludes = [e for e in excludes.split(',') if e]
     rc = slither_analyze_directory(solc_version, srcdir, external, excludes)
+    sys.exit(rc)
+
+
+@analyze.command()
+@click.option('-i', '--srcdir', type=click.Path(exists=True, file_okay=False), default='contracts',
+              help='Directory containing the solidity source to compile')
+@click.pass_context
+def solium(ctx, srcdir):
+    rc = solium_analyze_directory(srcdir)
     sys.exit(rc)
 
 
