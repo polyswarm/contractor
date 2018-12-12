@@ -91,7 +91,7 @@ contract BountyRegistry is Pausable {
         uint128 bountyGuid
     );
 
-    event BountySettled(
+    event SettledBounty(
         uint128 bountyGuid,
         address settler,
         uint256 payout
@@ -638,7 +638,7 @@ contract BountyRegistry is Pausable {
             payout = payout.add(arbiterReward);
         }
 
-        emit BountySettled(bountyGuid, msg.sender, payout);
+        emit SettledBounty(bountyGuid, msg.sender, payout);
     }
 
     /**
