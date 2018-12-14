@@ -8,16 +8,18 @@ stages:
   - e2e
 
 test:
-  image: python:3.5
+  image: python:3.6
   stage: test
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
   before_script:
     - pip install tox
   script:
-    - tox -e py35
+    - tox -e py36
 
 kick-e2e:
   tags:
-      - docker
+    - docker
   before_script:
     - apk --no-cache add curl jq
 

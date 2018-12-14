@@ -3,7 +3,8 @@ import logging
 import sys
 
 from contractor import db, steps
-from contractor.compiler import compile_directory
+from contractor.analyses import slither_analyze_directory, solium_analyze_directory
+from contractor.compiler import compile_directory, DEFAULT_SOLC_VERSION
 from contractor.config import Config
 from contractor.consul import ConsulClient
 from contractor.deployer import Deployer
@@ -18,20 +19,53 @@ def cli(ctx):
 
 
 @cli.command()
+@click.option('--solc-version', default=DEFAULT_SOLC_VERSION,
+              help='Version of solc to compile with')
 @click.option('-i', '--srcdir', type=click.Path(exists=True, file_okay=False), default='contracts',
               help='Directory containing the solidity source to compile')
-@click.option('-e', '--external', type=click.Path(exists=True, file_okay=False), default='external',
-              help='Directory containing any external libraries used')
 @click.option('-o', '--outdir', type=click.Path(file_okay=False), default='build',
               help='Directory to store the compiled json output for later deployment')
+@click.option('-e', '--external', type=click.Path(exists=True, file_okay=False), default='external',
+              help='Directory containing any external libraries used')
 @click.pass_context
-def compile(ctx, srcdir, external, outdir):
-    is_dirty = compile_directory(srcdir, outdir, external)
+def compile(ctx, solc_version, srcdir, outdir, external):
+    is_dirty = compile_directory(solc_version, srcdir, outdir, external)
 
     # If there are no contract changes, exit with failure to signal to not attempt a redeploy
     if not is_dirty:
         click.echo('No contract differences detected, exiting with failure')
         sys.exit(2)
+
+
+@cli.group()
+@click.pass_context
+def analyze(ctx):
+    pass
+
+
+@analyze.command()
+@click.option('--solc-version', default='v0.4.25',
+              help='Version of solc to compile with')
+@click.option('-i', '--srcdir', type=click.Path(exists=True, file_okay=False), default='contracts',
+              help='Directory containing the solidity source to compile')
+@click.option('-e', '--external', type=click.Path(exists=True, file_okay=False), default='external',
+              help='Directory containing any external libraries used')
+@click.option('--excludes', default='',
+              help='Comma-separated list of detectors to exclude')
+@click.pass_context
+def slither(ctx, solc_version, srcdir, external, excludes):
+    excludes = [e for e in excludes.split(',') if e]
+    rc = slither_analyze_directory(solc_version, srcdir, external, excludes)
+    sys.exit(rc)
+
+
+@analyze.command()
+@click.option('-i', '--srcdir', type=click.Path(exists=True, file_okay=False), default='contracts',
+              help='Directory containing the solidity source to compile')
+@click.pass_context
+def solium(ctx, srcdir):
+    rc = solium_analyze_directory(srcdir)
+    sys.exit(rc)
 
 
 @cli.command()
