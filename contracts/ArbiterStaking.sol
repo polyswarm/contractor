@@ -14,6 +14,7 @@ contract ArbiterStaking is Pausable {
     uint256 public constant MAXIMUM_STAKE = 100000000 * 10 ** 18;
     uint8 public constant VOTE_RATIO_NUMERATOR = 9;
     uint8 public constant VOTE_RATIO_DENOMINATOR = 10;
+    string public constant VERSION = "1.0.0";
 
     // Deposits
     struct Deposit {
@@ -37,6 +38,10 @@ contract ArbiterStaking is Pausable {
     event BountyRecorded(
         uint128 indexed guid,
         uint256 blockNumber
+    );
+
+    event BountyVoteRecorded(
+        address arbiter
     );
 
     uint256 public numBounties;
@@ -249,6 +254,8 @@ contract ArbiterStaking is Pausable {
             bountyResponseByGuidAndAddress[bountyGuid][arbiter] = true;
             bountyResponses[arbiter] = bountyResponses[arbiter].add(1);
         }
+
+        emit BountyVoteRecorded(arbiter);
     }
 
     /**
