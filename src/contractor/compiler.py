@@ -34,18 +34,12 @@ def __compiler_input_from_directory(src_dir, ext_dir=None):
                 'enabled': True,
                 'runs': 200,
             },
-            # XXX: We might not need all of these, definitely require abi and bytecode object though
             'outputSelection': {
                 '*': {
                     '*': [
                         'abi',
-                        'ast',
                         'evm.bytecode.object',
-                        'evm.bytecode.sourceMap',
                         'evm.bytecode.linkReferences',
-                        'evm.deployedBytecode.object',
-                        'evm.deployedBytecode.sourceMap',
-                        'evm.deployedBytecode.linkReferences',
                     ]
                 }
             }
