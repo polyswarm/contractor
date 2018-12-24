@@ -91,9 +91,9 @@ class Network(object):
         if addr.startswith('0x'):
             addr = addr[2:]
 
-        lowhexdigits = {c for c in string.hexdigits.lower()}
+        lowhexdigits = set(string.hexdigits.lower())
         if all([c in lowhexdigits for c in addr]):
-            addr = self.w3.toChecksumAddress(addr)
+            addr = self.w3.toChecksumAddress(addr)[2:]
 
         addr = '0x' + addr
         if not self.w3.isChecksumAddress(addr):
