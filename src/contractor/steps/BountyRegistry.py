@@ -16,7 +16,7 @@ class BountyRegistry(Step):
 
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         arbiter_vote_window = contract_config.get('arbiter_vote_window', 100)
-        arbiters = contract_config.get('arbiters', [])
+        arbiters = [network.normalize_address(a) for a in contract_config.get('arbiters', [])]
 
         contract = deployer.deploy(CONTRACT_NAME, nectar_token_address, arbiter_staking_address, arbiter_vote_window)
 

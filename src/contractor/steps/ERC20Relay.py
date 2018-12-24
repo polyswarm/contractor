@@ -21,8 +21,8 @@ class ERC20Relay(Step):
 
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         nct_eth_exchange_rate = contract_config.get('nct_eth_exchange_rate', NCT_ETH_EXCHANGE_RATE)
-        fee_wallet = contract_config.get('fee_wallet')
-        verifiers = contract_config.get('verifiers')
+        fee_wallet = network.normalize_address(contract_config.get('fee_wallet'))
+        verifiers = [network.normalize_address(a) for a in contract_config.get('verifiers')]
 
         if network.chain == Chain.HOMECHAIN:
             deployer.deploy(CONTRACT_NAME, nectar_token_address, nct_eth_exchange_rate, fee_wallet, verifiers)
