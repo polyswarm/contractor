@@ -123,7 +123,9 @@ class Network(object):
         return self.w3.eth.account.signTransaction(tx, self.priv_key)
 
     def send_transaction(self, signed_tx):
-        return self.w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+        txhash = self.w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+        logger.info('Submitting tx %s', txhash.hex())
+        return txhash
 
     def block_number(self):
         return self.w3.eth.blockNumber
