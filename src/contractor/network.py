@@ -105,6 +105,7 @@ class Network(object):
         return self.w3.eth.getCode(addr) != '0x'
 
     def txopts(self, increment_nonce=True):
+        logger.info('Preparing tx with nonce %s', self.nonce)
         ret = {
             # XXX: Difference between these is subtle but irrelevant for our purposes
             'chainId': self.network_id,
@@ -120,6 +121,7 @@ class Network(object):
         return ret
 
     def sign_transaction(self, tx):
+        logger.info('Signing transaction: %s', tx)
         return self.w3.eth.account.signTransaction(tx, self.priv_key)
 
     def send_transaction(self, signed_tx):
