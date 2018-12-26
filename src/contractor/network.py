@@ -36,14 +36,14 @@ class Network(object):
         self.contract_config = contract_config
         self.chain = chain
 
+        self.w3 = Web3(HTTPProvider(self.eth_uri))
+        self.w3.middleware_stack.inject(geth_poa_middleware, layer=0)
+
         self.nonce = 0
-        self.w3 = None
         self.priv_key = None
         self.account = None
 
     def connect(self, keyfile, password):
-        self.w3 = Web3(HTTPProvider(self.eth_uri))
-        self.w3.middleware_stack.inject(geth_poa_middleware, layer=0)
         self.priv_key = self.w3.eth.account.decrypt(keyfile.read(), password)
         self.account = self.w3.eth.account.privateKeyToAccount(self.priv_key).address
 
@@ -119,6 +119,25 @@ class Network(object):
             self.nonce += 1
 
         return ret
+
+    def latest_block(self):
+        return self.w3.eth.getBlock('latest')
+
+    def latest_block_filter(self):
+        return self.w3.eth.filter('latest')
+
+    def get_transactions(self, list_of_tx_hashes):
+        ret = []
+        for tx_hash in list_of_tx_hashes:
+            tx = self.w3.eth.getTransaction(tx_hash)
+            ret.append(tx)
+        return ret
+
+    def balance(self, address, block_identifier='latest'):
+        return self.w3.eth.getBalance(address, block_identifier)
+
+    def get_contract(self, abi, address):
+        return self.w3.eth.contract(abi=abi, address=address)
 
     def sign_transaction(self, tx):
         logger.info('Signing transaction: %s', tx)
