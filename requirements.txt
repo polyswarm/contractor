@@ -12,3 +12,4 @@ slither-analyzer==0.3.1
 SQLAlchemy==1.2.14
 toposort==1.5
 web3==4.8.1
+tabulate==0.8.2

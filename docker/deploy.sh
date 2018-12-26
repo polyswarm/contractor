@@ -35,3 +35,5 @@ if [ ! -z "$CONSUL_URI" ]; then
     echo "Pushing config to consul"
     contractor consul push
 fi
+
+contractor watch --chain side --network $SIDECHAIN --token nectar --cumulative True
