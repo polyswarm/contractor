@@ -25,9 +25,9 @@ contractor deploy --chain home --network $HOMECHAIN --keyfile $HOMECHAIN_KEYFILE
 
 # These configuration options are polyswarmd specific
 if [ -z "$APIKEY_DB_URI" ]; then
-    echo "{\"ipfs_uri\": \"$IPFS_URI\", \"require_api_key\": false}" > consul/config.json
+    echo "{\"ipfs_uri\": \"$IPFS_URI\", \"artifact_limit\": $ARTIFACT_LIMIT, \"require_api_key\": false}" > consul/config.json
 else
-    echo "{\"ipfs_uri\": \"$IPFS_URI\", \"require_api_key\": true, \"db_uri\": \"$APIKEY_DB_URI\"}" > consul/config.json
+    echo "{\"ipfs_uri\": \"$IPFS_URI\", \"artifact_limit\": $ARTIFACT_LIMIT, \"require_api_key\": true, \"db_uri\": \"$APIKEY_DB_URI\"}" > consul/config.json
 fi
 
 # Push configuration to consul
