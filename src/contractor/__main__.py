@@ -128,7 +128,7 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
               help='Which token balance you want to monitor')
 @click.option('--verbosity', type=click.Choice((1, 2)), envvar='VERBOSITY', required=False,
               help='1 for minimum logs or 2 all the log block, tx, and function input logs', default=1)
-@click.option('--cumulative', envvar='CUMULATIVE', required=False,
+@click.option('--cumulative', envvar='CUMULATIVE', is_flag=True, required=False,
               help='If balance change and function call counts should be cumulatively added or compared to the last block', default=False)
 @click.pass_context
 def watch(ctx, config, community, network, chain, token, verbosity, cumulative):
