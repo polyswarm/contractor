@@ -7,7 +7,7 @@ from itertools import zip_longest
 logger = logging.getLogger(__name__)
 
 CONTRACT_NAME = 'NectarToken'
-MINT_STRIDE = 1
+MINT_STRIDE = 10
 
 
 class NectarToken(Step):

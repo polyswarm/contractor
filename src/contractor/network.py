@@ -146,6 +146,7 @@ class Network(object):
         tx = self.w3.eth.getTransaction(txhash)
         receipt = self.w3.eth.getTransactionReceipt(txhash)
 
+        logger.info('Receipt for %s: %s', txhash.hex(), dict(receipt))
         return receipt is not None and receipt['gasUsed'] < tx['gas'] and receipt['status'] == 1
 
     def check_transactions(self, txhashes):
@@ -154,7 +155,7 @@ class Network(object):
     def wait_and_check_transaction(self, txhash):
         receipt = self.wait_for_transaction(txhash)
         if not self.check_transaction(txhash):
-            raise Exception('Transaction {0} failed, check network state', txhash)
+            raise Exception('Transaction {0} failed, check network state'.format(txhash.hex()))
         return receipt
 
     def wait_and_check_transactions(self, txhashes):
