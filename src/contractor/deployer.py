@@ -130,8 +130,11 @@ class Deployer(object):
         opts.update(txopts)
 
         # Use our estimate but don't exceed gas limit defined in config
-        gas = int(call.estimateGas({'from': self.__network.account, **opts}) * GAS_MULTIPLIER)
-        opts['gas'] = min(opts['gas'], gas)
+        try:
+            gas = int(call.estimateGas({'from': self.__network.account, **opts}) * GAS_MULTIPLIER)
+            opts['gas'] = min(opts['gas'], gas)
+        except ValueError as e:
+            logger.warning('Error estimating gas, bravely trying anyway: %s', e)
 
         tx = call.buildTransaction(opts)
 
