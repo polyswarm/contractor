@@ -65,36 +65,7 @@ class ConsulClient(object):
                 with open(filename, 'r') as f:
                     value = json.load(f)
 
-                # This is a contract
-                if 'abi' in value and 'contractName' in value:
-                    logger.info('Pushing contents of %s to consul', filename)
-                    self.client.kv.put(key, json.dumps(value))
-                    written.add(filename)
-
-        ops = []
-        for root, dirs, files in os.walk(in_dir):
-            for file in files:
-                key = base_key + os.path.splitext(file)[0]
-                filename = os.path.join(root, file)
-
-                if filename in written:
-                    continue
-
-                logger.info('Adding contents of %s to transaction', filename)
-
-                with open(filename, 'rb') as f:
-                    value = b64encode(f.read()).decode('utf-8')
-                    ops.append((key, value))
-
-        # Transform ops into a transaction that consul expects
-        tx = [{
-            'KV': {
-                'Verb': 'set',
-                'Key': key,
-                'Value': value,
-            },
-        } for key, value in ops]
-
-        logger.info('Pushing transaction to consul')
-        self.client.txn.put(tx)
-
+                # TODO: Restore transactional update, causing breakage in infrastructure
+                logger.info('Pushing contents of %s to consul', filename)
+                self.client.kv.put(key, json.dumps(value))
+                written.add(filename)

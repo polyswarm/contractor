@@ -38,7 +38,7 @@ class NectarToken(Step):
                 group = filter(None, group)
                 txhashes = []
                 for j, user in enumerate(group):
-                    logger.info('Minting tokens for user %s: %s', i + j, user)
+                    logger.info('Minting tokens for user %s: %s', i * MINT_STRIDE + j, user)
                     txhashes.append(
                         deployer.transact(deployer.contracts['NectarToken'].functions.mint(user, mint_amount)))
 

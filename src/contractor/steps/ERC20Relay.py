@@ -24,6 +24,17 @@ class ERC20Relay(Step):
         fee_wallet = network.normalize_address(contract_config.get('fee_wallet'))
         verifiers = [network.normalize_address(a) for a in contract_config.get('verifiers')]
 
+        address = None
+        if network.chain == Chain.HOMECHAIN:
+            address = network.normalize_address(contract_config.get('home_address'))
+        elif network.chain == Chain.SIDECHAIN:
+            address = network.normalize_address(contract_config.get('side_address'))
+
+        if address and network.is_contract(address):
+            logger.warning('Using already deployed contract for network %s at %s', network.name, address)
+            deployer.at(CONTRACT_NAME, address)
+            return
+
         if network.chain == Chain.HOMECHAIN:
             deployer.deploy(CONTRACT_NAME, nectar_token_address, nct_eth_exchange_rate, fee_wallet, verifiers)
             logger.info('Chain is homechain, nothing more to do')
