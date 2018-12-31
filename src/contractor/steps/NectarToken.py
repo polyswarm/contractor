@@ -29,8 +29,8 @@ class NectarToken(Step):
         else:
             deployer.deploy(CONTRACT_NAME)
 
-        txhash = deployer.transact(deployer.contracts['NectarToken'].functions.enableTransfers())
-        network.wait_and_check_transaction(txhash)
+            txhash = deployer.transact(deployer.contracts['NectarToken'].functions.enableTransfers())
+            network.wait_and_check_transaction(txhash)
 
         if mint and network.chain == Chain.HOMECHAIN:
             # Take mint requests MINT_STRIDE users at a time
