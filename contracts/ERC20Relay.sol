@@ -11,6 +11,19 @@ contract ERC20Relay is Ownable {
 
     string public constant VERSION = "1.0.0";
 
+    /* Managers */
+    address public verifierManager;
+    address public feeManager;
+
+    event NewVerifierManager(
+        address indexed previousManager,
+        address indexed newManager
+    );
+    event NewFeeManager(
+        address indexed previousManager,
+        address indexed newManager
+    );
+
     /* Verifiers */
     uint256 constant MINIMUM_VERIFIERS = 3;
     uint256 public requiredVerifiers;
@@ -28,11 +41,11 @@ contract ERC20Relay is Ownable {
     struct Withdrawal {
         address destination;
         uint256 amount;
-        address[] approvals;
         bool processed;
     }
 
     mapping (bytes32 => Withdrawal) public withdrawals;
+    mapping (bytes32 => address[]) public withdrawalApprovals;
 
     event WithdrawalProcessed(
         address indexed destination,
@@ -50,11 +63,11 @@ contract ERC20Relay is Ownable {
     struct Anchor {
         bytes32 blockHash;
         uint256 blockNumber;
-        address[] approvals;
         bool processed;
     }
 
     Anchor[] public anchors;
+    mapping (bytes32 => address[]) public anchorApprovals;
 
     event AnchoredBlock(
         bytes32 indexed blockHash,
@@ -71,6 +84,10 @@ contract ERC20Relay is Ownable {
     constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] _verifiers) public {
         require(_token != address(0), "Invalid token address");
         require(_verifiers.length >= MINIMUM_VERIFIERS, "Number of verifiers less than minimum");
+
+        // If set to address(0), onlyVerifierManager and onlyFeeManager are equivalent to onlyOwner
+        verifierManager = address(0);
+        feeManager = address(0);
 
         // Dummy verifier at index 0
         verifiers.push(address(0));
@@ -94,8 +111,35 @@ contract ERC20Relay is Ownable {
         revert("Do not allow sending Eth to this contract");
     }
 
-    // TODO: Allow existing verifiers to vote on adding/removing others
-    function addVerifier(address addr) external onlyOwner {
+    modifier onlyVerifierManager() {
+        if (verifierManager == address(0)) {
+            require(msg.sender == owner, "Not a verifier manager");
+        } else {
+            require(msg.sender == verifierManager, "Not a verifier manager");
+        }
+        _;
+    }
+
+    function setVerifierManager(address newVerifierManager) external onlyOwner {
+        emit NewVerifierManager(verifierManager, newVerifierManager);
+        verifierManager = newVerifierManager;
+    }
+
+    modifier onlyFeeManager() {
+        if (feeManager == address(0)) {
+            require(msg.sender == owner, "Not a fee manager");
+        } else {
+            require(msg.sender == feeManager, "Not a fee manager");
+        }
+        _;
+    }
+
+    function setFeeManager(address newFeeManager) external onlyOwner {
+        emit NewFeeManager(feeManager, newFeeManager);
+        feeManager = newFeeManager;
+    }
+
+    function addVerifier(address addr) external onlyVerifierManager {
         require(addr != address(0), "Invalid verifier address");
         require(verifierAddressToIndex[addr] == 0, "Address is already a verifier");
 
@@ -106,8 +150,7 @@ contract ERC20Relay is Ownable {
         fees = calculateFees();
     }
 
-    // TODO: Allow existing verifiers to vote on adding/removing others
-    function removeVerifier(address addr) external onlyOwner {
+    function removeVerifier(address addr) external onlyVerifierManager {
         require(addr != address(0), "Invalid verifier address");
         require(verifierAddressToIndex[addr] != 0, "Address is not a verifier");
         require(verifiers.length.sub(1) > MINIMUM_VERIFIERS, "Removing verifier would put number of verifiers below minimum");
@@ -154,7 +197,7 @@ contract ERC20Relay is Ownable {
         _;
     }
 
-    function setNctEthExchangeRate(uint256 _nctEthExchangeRate) external onlyOwner {
+    function setNctEthExchangeRate(uint256 _nctEthExchangeRate) external onlyFeeManager {
         nctEthExchangeRate = _nctEthExchangeRate;
         fees = calculateFees();
 
@@ -184,20 +227,22 @@ contract ERC20Relay is Ownable {
         uint256 net = amount.sub(fees);
 
         if (withdrawals[hash].destination == address(0)) {
-            withdrawals[hash] = Withdrawal(destination, net, new address[](0), false);
+            withdrawals[hash] = Withdrawal(destination, net, false);
         }
 
         Withdrawal storage w = withdrawals[hash];
+        address[] storage approvals = withdrawalApprovals[hash];
         require(w.destination == destination, "Destination mismatch");
         require(w.amount == net, "Amount mismatch");
 
-        for (uint256 i = 0; i < w.approvals.length; i++) {
-            require(w.approvals[i] != msg.sender, "Already approved withdrawal");
+
+        for (uint256 i = 0; i < approvals.length; i++) {
+            require(approvals[i] != msg.sender, "Already approved withdrawal");
         }
 
-        w.approvals.push(msg.sender);
+        approvals.push(msg.sender);
 
-        if (w.approvals.length >= requiredVerifiers && !w.processed) {
+        if (approvals.length >= requiredVerifiers && !w.processed) {
             if (fees != 0 && feeWallet != address(0)) {
                 token.safeTransfer(feeWallet, fees);
             }
@@ -224,14 +269,15 @@ contract ERC20Relay is Ownable {
         require(withdrawals[hash].destination != address(0), "No such withdrawal");
 
         Withdrawal storage w = withdrawals[hash];
+        address[] storage approvals = withdrawalApprovals[hash];
         require(!w.processed, "Withdrawal already processed");
 
-        uint256 length = w.approvals.length;
+        uint256 length = approvals.length;
         for (uint256 i = 0; i < length; i++) {
-            if (w.approvals[i] == msg.sender) {
-                w.approvals[i] = w.approvals[length.sub(1)];
-                delete w.approvals[length.sub(1)];
-                w.approvals.length = w.approvals.length.sub(1);
+            if (approvals[i] == msg.sender) {
+                approvals[i] = approvals[length.sub(1)];
+                delete approvals[length.sub(1)];
+                approvals.length = approvals.length.sub(1);
                 break;
             }
         }
@@ -248,19 +294,21 @@ contract ERC20Relay is Ownable {
                 Anchor storage last = anchors[anchors.length.sub(1)];
                 emit ContestedBlock(last.blockHash, last.blockNumber);
             }
-            anchors.push(Anchor(blockHash, blockNumber, new address[](0), false));
+            anchors.push(Anchor(blockHash, blockNumber, false));
         }
 
+        bytes32 hash = keccak256(abi.encodePacked(blockHash, blockNumber));
         Anchor storage a = anchors[anchors.length.sub(1)];
+        address[] storage approvals = anchorApprovals[hash];
         require(a.blockHash == blockHash, "Block hash mismatch");
         require(a.blockNumber == blockNumber, "Block number mismatch");
 
-        for (uint256 i = 0; i < a.approvals.length; i++) {
-            require(a.approvals[i] != msg.sender, "Already approved anchor block");
+        for (uint256 i = 0; i < approvals.length; i++) {
+            require(approvals[i] != msg.sender, "Already approved anchor block");
         }
 
-        a.approvals.push(msg.sender);
-        if (a.approvals.length >= requiredVerifiers && !a.processed) {
+        approvals.push(msg.sender);
+        if (approvals.length >= requiredVerifiers && !a.processed) {
             a.processed = true;
             emit AnchoredBlock(blockHash, blockNumber);
         }
@@ -270,12 +318,15 @@ contract ERC20Relay is Ownable {
         Anchor storage a = anchors[anchors.length.sub(1)];
         require(!a.processed, "Block anchor already processed");
 
-        uint256 length = a.approvals.length;
+        bytes32 hash = keccak256(abi.encodePacked(a.blockHash, a.blockNumber));
+        address[] storage approvals = anchorApprovals[hash];
+
+        uint256 length = approvals.length;
         for (uint256 i = 0; i < length; i++) {
-            if (a.approvals[i] == msg.sender) {
-                a.approvals[i] = a.approvals[length.sub(1)];
-                delete a.approvals[length.sub(1)];
-                a.approvals.length = a.approvals.length.sub(1);
+            if (approvals[i] == msg.sender) {
+                approvals[i] = approvals[length.sub(1)];
+                delete approvals[length.sub(1)];
+                approvals.length = approvals.length.sub(1);
                 break;
             }
         }

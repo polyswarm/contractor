@@ -9,6 +9,8 @@ from hexbytes import HexBytes
 
 logger = logging.getLogger(__name__)
 
+GAS_MULTIPLIER = 1.2
+
 
 # For polyswarmd compatibility
 # https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
@@ -127,7 +129,12 @@ class Deployer(object):
         opts = dict(self.__network.txopts())
         opts.update(txopts)
 
+        # Use our estimate but don't exceed gas limit defined in config
+        gas = int(call.estimateGas({'from': self.__network.account, **opts}) * GAS_MULTIPLIER)
+        opts['gas'] = min(opts['gas'], gas)
+
         tx = call.buildTransaction(opts)
+
         signed_tx = self.__network.sign_transaction(tx)
         return self.__network.send_transaction(signed_tx)
 
