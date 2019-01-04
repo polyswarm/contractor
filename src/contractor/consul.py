@@ -62,8 +62,13 @@ class ConsulClient(object):
                 key = base_key + os.path.splitext(file)[0]
                 filename = os.path.join(root, file)
 
-                with open(filename, 'r') as f:
-                    value = json.load(f)
+                try:
+                    with open(filename, 'r') as f:
+                        value = json.load(f)
+                except ValueError as e:
+                    logger.error('Error parsing %s as json, skipping: %s', filename, e)
+                    continue
+
 
                 # TODO: Restore transactional update, causing breakage in infrastructure
                 logger.info('Pushing contents of %s to consul', filename)
