@@ -90,6 +90,7 @@ class Deployer(object):
 
     def at(self, name, address, deployed=False):
         artifact = self.artifacts.get(name)
+
         if artifact is None:
             raise ValueError('No artifact {} in artifacts, have you compiled?'.format(name))
 
@@ -156,9 +157,10 @@ class Deployer(object):
         logger.debug('Deployment results: %s', json.dumps(results))
         json.dump(results, f)
 
-    def load_results(self, f):
+    def load_results(self, f, key_to_name):
         logger.info('Loading deployment results from json')
 
         deployment_results = json.load(f)
-        for name, address in deployment_results.items():
-            self.at(name, address)
+        for key, address in deployment_results.items():
+            if key in key_to_name:
+                self.at(key_to_name[key], address)

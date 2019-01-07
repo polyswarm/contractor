@@ -9,7 +9,7 @@ from contractor.config import Config
 from contractor.consul import ConsulClient
 from contractor.deployer import Deployer
 from contractor.network import Chain
-
+from contractor.watch import Watch
 
 @click.group()
 @click.pass_context
@@ -116,6 +116,35 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
         deployer.dump_results(f)
 
 
+@cli.command()
+@click.option('--config', envvar='CONFIG', type=click.File('r'), required=True,
+              help='Path to yaml config file defining networks and users')
+@click.option('--community', envvar='COMMUNITY', required=True,
+              help='What community we are deploying for')
+@click.option('--network', required=True,
+              help='What network to watch')
+@click.option('--chain', type=click.Choice(('home', 'side')), required=True,
+              help='Is this deployment on the homechain or sidechain?')
+@click.option('--token', envvar='TOKEN', required=True, type=click.Choice(('nectar', 'ether')),
+              help='Which token balance you want to monitor')
+@click.option('--verbosity', type=click.Choice((1, 2)), envvar='VERBOSITY', required=False,
+              help='1 for minimum logs or 2 all the log block, tx, and function input logs', default=1)
+@click.option('--cumulative', envvar='CUMULATIVE', is_flag=True, required=False,
+              help='If balance change and function call counts should be cumulatively added or compared to the last block', default=False)
+@click.pass_context
+def watch(ctx, config, community, network, chain, token, verbosity, cumulative):
+    config = Config.from_yaml(config, Chain.from_str(chain))
+    if network not in config.network_configs:
+        click.echo('No such network {0} defined, check configuration', network)
+        sys.exit(1)
+
+    network = config.network_configs[network].create()
+    deployer = Deployer(community, network, 'consul')
+
+    watcher = Watch(config, network, token, deployer, verbosity, cumulative)
+    watcher.watch()
+
+
 @cli.group()
 @click.pass_context
 def consul(ctx):
@@ -152,7 +181,6 @@ def pull(ctx, consul_uri, consul_token, community, wait, outdir):
 def push(ctx, consul_uri, consul_token, community, indir):
     c = ConsulClient(consul_uri, consul_token)
     c.push_config(community, indir)
-
 
 if __name__ == '__main__':
     cli(obj={})
