@@ -115,6 +115,7 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
     with open(output, 'w') as f:
         deployer.dump_results(f)
 
+
 @cli.command()
 @click.option('--config', envvar='CONFIG', type=click.File('r'), required=True,
               help='Path to yaml config file defining networks and users')
@@ -142,6 +143,7 @@ def watch(ctx, config, community, network, chain, token, verbosity, cumulative):
     watcher = Watch(config, network, token, verbosity, cumulative)
 
     watcher.watch()
+
 
 @cli.group()
 @click.pass_context

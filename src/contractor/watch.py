@@ -2,7 +2,9 @@ import json
 import time
 import logging
 import copy
+from contractor.deployer import Deployer
 from tabulate import tabulate
+from termcolor import colored
 EXTRA_LOGS_VERBOSITY_CODE = 2
 
 
@@ -59,19 +61,19 @@ class Watch(object):
             function_calls = new_balances[user]["function_calls"]
             diff = new_balance - old_balnace
 
-            ENDC = '\033[0m'
             if diff < 0:
-                color = '\033[91m'  # red
-                formated_new_balance = "{}{}{}".format(color, new_balance, ENDC)
-                formated_diff = "{}{}{}".format(color, diff, ENDC)
+                red = 'red'
+                formated_new_balance = colored(new_balance, red)
+                formated_diff = colored(diff, red)
                 tabulate_list.append([user, formated_new_balance, formated_diff, function_calls])
             elif diff > 0:
-                color = '\033[92m'  # green
-                formated_new_balance = "{}{}{}".format(color, new_balance, ENDC)
-                formated_diff = "{}{}{}".format(color, diff, ENDC)
+                green = 'green'
+                formated_new_balance = colored(new_balance, green)
+                formated_diff = colored(diff, green)
                 tabulate_list.append([user, formated_new_balance, formated_diff, function_calls])
             else:
                 tabulate_list.append([user, new_balance, diff, function_calls])
+
         balance_column_label = 'Balance ({})'.format(self.token)
         change_column_label = 'Change {}'.format('(cumulative)' if self.cumulative else '')
         fn_calls_column_label = 'Function Calls {}'.format('(cumulative)' if self.cumulative else '')
@@ -150,7 +152,7 @@ class Watch(object):
                         else:
                             latest_user_data[sender]["function_calls"][fn] = 1
                     else:
-                        logging.info("Transaction {} outside Polyswarm network, ignoring...", tx.hash)
+                        logging.info("Transaction {} outside PolySwarm network, ignoring...", tx.hash)
                         continue
 
                 # get account balances for contracts and users
