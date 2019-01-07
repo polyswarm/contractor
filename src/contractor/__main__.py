@@ -139,9 +139,9 @@ def watch(ctx, config, community, network, chain, token, verbosity, cumulative):
         sys.exit(1)
 
     network = config.network_configs[network].create()
+    deployer = Deployer(community, network, 'consul')
 
-    watcher = Watch(config, network, token, verbosity, cumulative)
-
+    watcher = Watch(config, network, token, deployer, verbosity, cumulative)
     watcher.watch()
 
 

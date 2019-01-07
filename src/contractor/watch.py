@@ -10,7 +10,7 @@ EXTRA_LOGS_VERBOSITY_CODE = 2
 
 class Watch(object):
     """Watch transactions and user account balance in nectar or ether"""
-    def __init__(self, config, network, token, verbosity=1, cumulative=True):
+    def __init__(self, config, network, token, deployer, verbosity=1, cumulative=True):
         self.config = config
         self.network = network
         self.token = token
@@ -18,29 +18,20 @@ class Watch(object):
         self.cumulative = cumulative
         self.poll_interval = 1
 
-        with open('consul/{}.json'.format('ERC20Relay')) as f:
-            relay_abi = json.load(f)
-
-        with open('consul/{}.json'.format('BountyRegistry')) as f:
-            bounty_abi = json.load(f)
-
-        with open('consul/{}.json'.format('NectarToken')) as f:
-            nectar_abi = json.load(f)
-
-        with open('consul/{}.json'.format('ArbiterStaking')) as f:
-            staking_abi = json.load(f)
-
         with open('consul/{}.json'.format(self.network.name)) as f:
-            chain_config = json.load(f)
+            deployer.load_results(f, {
+                'nectar_token_address': 'NectarToken',
+                'arbiter_staking_address': 'ArbiterStaking',
+                'erc20_relay_address': 'ERC20Relay',
+                'bounty_registry_address': 'BountyRegistry',
+                'offer_registry_address': 'OfferRegistry'
+            })
 
-        self.nectarToken = self.network.get_contract(
-            nectar_abi['abi'], chain_config['nectar_token_address'])
-        self.bountyRegistry = self.network.get_contract(
-            bounty_abi['abi'], chain_config['bounty_registry_address'])
-        self.erc20Relay = self.network.get_contract(
-            relay_abi['abi'], chain_config['erc20_relay_address'])
-        self.arbiterStaking = self.network.get_contract(
-            staking_abi['abi'], chain_config['arbiter_staking_address'])
+        self.nectarToken = deployer.contracts['NectarToken']
+        self.bountyRegistry = deployer.contracts['BountyRegistry']
+        self.erc20Relay = deployer.contracts['ERC20Relay']
+        self.arbiterStaking = deployer.contracts['ArbiterStaking']
+
         self.contract_map = {
             self.nectarToken.address: self.nectarToken,
             self.bountyRegistry.address: self.bountyRegistry,
