@@ -24,11 +24,12 @@ echo "Deploying to homechain"
 contractor deploy --chain home --network $HOMECHAIN --keyfile $HOMECHAIN_KEYFILE -i consul -o consul/homechain.json
 
 # These configuration options are polyswarmd specific
-if [ -z "$AUTH_URI" ]; then
-    echo "{\"ipfs_uri\": \"$IPFS_URI\", \"artifact_limit\": $ARTIFACT_LIMIT}" > consul/config.json
-else
-    echo "{\"ipfs_uri\": \"$IPFS_URI\", \"artifact_limit\": $ARTIFACT_LIMIT, \"auth_uri\": \"$AUTH_URI\"}" > consul/config.json
-fi
+jq -n \
+    --argjson ipfs_uri "\"$IPFS_URI\"" \
+    --argjson artifact_limit "$ARTIFACT_LIMIT" \
+    --argjson auth_uri $([ -n "$AUTH_URI" ] && echo "\"$AUTH_URI\"" || echo null) \
+    --argjson profiler_enabled $([ -n "$PROFILER_ENABLED" -a "x$PROFILER_ENABLED" != "x0" ] && echo true || echo false) \
+    -f docker/config.jq > consul/config.json
 
 # Push configuration to consul
 if [ ! -z "$CONSUL_URI" ]; then
