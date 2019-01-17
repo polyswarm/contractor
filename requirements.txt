@@ -3,7 +3,6 @@ coverage==4.5.1
 eth-tester[py-evm]==0.1.0b33
 hexbytes==0.1.0
 psycopg2-binary==2.7.6.1
-py-solc==3.2.0
 pytest==4.0.0
 pytest-cov==2.6.0
 python-consul==1.1.0
@@ -14,3 +13,4 @@ toposort==1.5
 web3==4.8.1
 tabulate==0.8.2
 termcolor==1.1.0
+git+https://github.com/polyswarm/py-solc.git@feature/0-5-0#egg=pysolc

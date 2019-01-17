@@ -4,7 +4,7 @@ import os
 
 from solc import install_solc, compile_standard
 
-DEFAULT_SOLC_VERSION = 'v0.4.25'
+DEFAULT_SOLC_VERSION = 'v0.5.0'
 
 logger = logging.getLogger(__name__)
 
