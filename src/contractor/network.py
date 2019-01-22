@@ -70,17 +70,14 @@ class Network(object):
         self.nonce = self.__get_nonce()
 
     def __get_nonce(self):
-        last_nonce = -1
-        while True:
-            # Also include transactions in txpool
-            nonce = self.w3.eth.getTransactionCount(self.account, 'pending')
+        # the following assumes __get_nonce is only called when a tx is actually sent
+        
+        reported_nonce = self.w3.eth.getTransactionCount(self.account, 'pending')
 
-            if nonce == last_nonce:
-                logger.info('Settled on transaction count %s', nonce)
-                break
-
-            last_nonce = nonce
-            time.sleep(2)
+        if reported_nonce > self.nonce+1:
+            nonce = reported_nonce
+        else:
+            nonce = self.nonce+1
 
         return nonce
 
