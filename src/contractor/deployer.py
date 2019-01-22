@@ -9,7 +9,7 @@ from hexbytes import HexBytes
 
 logger = logging.getLogger(__name__)
 
-GAS_MULTIPLIER = 1.2
+GAS_MULTIPLIER = 3
 
 
 # For polyswarmd compatibility
