@@ -148,8 +148,8 @@ class Network(object):
             txhash = self.w3.eth.sendRawTransaction(signed_tx.rawTransaction)
         except ValueError as e:
             if str(e).find("known transaction") != -1:
-                logger.warn("Got known transaction error, continuing anyway...")
                 txhash = signed_tx.hash
+                logger.warn("Got known transaction error for tx %s", txhash.hex())
             else:
                 raise e
 
