@@ -144,7 +144,15 @@ class Network(object):
         return self.w3.eth.account.signTransaction(tx, self.priv_key)
 
     def send_transaction(self, signed_tx):
-        txhash = self.w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+        try:
+            txhash = self.w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+        except ValueError as e:
+            if str(e).find("known transaction") != -1:
+                txhash = signed_tx.hash
+                logger.warn("Got known transaction error for tx %s", txhash.hex())
+            else:
+                raise e
+
         logger.info('Submitting tx %s', txhash.hex())
         return txhash
 
