@@ -1,7 +1,8 @@
 import subprocess
+import sys
 
 
-def call_with_output(cmd):
+def call_with_output(cmd, file=sys.stdout):
     # Run command printing output in real time
     # https://www.endpoint.com/blog/2015/01/28/getting-realtime-output-using-python
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -11,6 +12,6 @@ def call_with_output(cmd):
             break
 
         if output:
-            print(output)
+            file.write(output)
 
     return p.wait(timeout=1)

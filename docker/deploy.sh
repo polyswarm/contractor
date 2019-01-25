@@ -19,9 +19,9 @@ contractor compile -o consul
 
 # Deploy to sidechain first, as it's cheaper (free) in the case of failure
 echo "Deploying to sidechain"
-contractor deploy --chain side --network $SIDECHAIN --keyfile $SIDECHAIN_KEYFILE -i consul -o consul/sidechain.json
+contractor deploy --chain side --network $SIDECHAIN --keyfile $SIDECHAIN_KEYFILE -a consul -o consul/sidechain.json
 echo "Deploying to homechain"
-contractor deploy --chain home --network $HOMECHAIN --keyfile $HOMECHAIN_KEYFILE -i consul -o consul/homechain.json
+contractor deploy --chain home --network $HOMECHAIN --keyfile $HOMECHAIN_KEYFILE -a consul -o consul/homechain.json
 
 # These configuration options are polyswarmd specific
 jq -n \

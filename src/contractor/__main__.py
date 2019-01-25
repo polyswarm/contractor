@@ -11,6 +11,11 @@ from contractor.deployer import Deployer
 from contractor.network import Chain
 from contractor.watch import Watch
 
+import colorama
+
+colorama.init()
+
+
 @click.group()
 @click.pass_context
 def cli(ctx):
@@ -85,7 +90,7 @@ def solium(ctx, srcdir):
               help='URI for the deployment database')
 @click.option('--git/--no-git', default=True,
               help='Record git commit hash and tree status, assumes artifactdir is in repository')
-@click.option('-i', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
+@click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
               help='Directory containing the compiled artifacts to deploy')
 @click.option('-o', '--output', type=click.Path(dir_okay=False, writable=True), required=False,
               help='File to output deployment results json to')
@@ -98,7 +103,8 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
         sys.exit(1)
 
     network = config.network_configs[network].create()
-    network.connect(keyfile, password)
+    network.unlock_keyfile(keyfile, password)
+    network.connect()
 
     session = None
     if db_uri is not None:
@@ -127,21 +133,34 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
               help='Is this deployment on the homechain or sidechain?')
 @click.option('--token', envvar='TOKEN', required=True, type=click.Choice(('nectar', 'ether')),
               help='Which token balance you want to monitor')
-@click.option('--verbosity', type=click.Choice((1, 2)), envvar='VERBOSITY', required=False,
-              help='1 for minimum logs or 2 all the log block, tx, and function input logs', default=1)
-@click.option('--cumulative', envvar='CUMULATIVE', is_flag=True, required=False,
-              help='If balance change and function call counts should be cumulatively added or compared to the last block', default=False)
+@click.option('-v', '--verbose', count=True,
+              help='Verbosity level')
+@click.option('--cumulative', envvar='CUMULATIVE', is_flag=True,
+              help='Cumulatively track balance change and function call counts')
+@click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
+              help='Directory containing the compiled artifacts to deploy')
+@click.option('-i', '--input', type=click.Path(exists=True, dir_okay=False), required=False,
+              help='Input file containing the deployed addresses of our artifacts')
 @click.pass_context
-def watch(ctx, config, community, network, chain, token, verbosity, cumulative):
+def watch(ctx, config, community, network, chain, token, verbosity, cumulative, artifactdir, input):
     config = Config.from_yaml(config, Chain.from_str(chain))
+
     if network not in config.network_configs:
         click.echo('No such network {0} defined, check configuration', network)
         sys.exit(1)
 
     network = config.network_configs[network].create()
-    deployer = Deployer(community, network, 'consul')
+    network.connect()
 
-    watcher = Watch(config, network, token, deployer, verbosity, cumulative)
+    deployer = Deployer(community, network, artifactdir)
+
+    # Default to homechain.json/sidechain.json
+    if not input:
+        input = chain + 'chain.json'
+
+    deployer.load_results(input)
+
+    watcher = Watch(config, network, deployer, token, cumulative, verbosity)
     watcher.watch()
 
 
@@ -181,6 +200,7 @@ def pull(ctx, consul_uri, consul_token, community, wait, outdir):
 def push(ctx, consul_uri, consul_token, community, indir):
     c = ConsulClient(consul_uri, consul_token)
     c.push_config(community, indir)
+
 
 if __name__ == '__main__':
     cli(obj={})

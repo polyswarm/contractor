@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 
 CONTRACT_NAME = 'ArbiterStaking'
 
+
 class ArbiterStaking(Step):
     DEPENDENCIES = {'NectarToken'}
 

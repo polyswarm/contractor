@@ -3,6 +3,7 @@ import string
 import time
 from enum import Enum
 
+from eth_account import Account
 from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
 
@@ -36,21 +37,29 @@ class Network(object):
         self.contract_config = contract_config
         self.chain = chain
 
+        self.nonce = 0
+        self.w3 = None
+        self.priv_key = None
+        self.address = None
+
+    @classmethod
+    def from_web3(cls, name, w3, priv_key, gas_limit, gas_price, timeout, contract_config, chain):
+        ret = cls(name, None, None, gas_limit, gas_price, timeout, contract_config, chain)
+        ret.w3 = w3
+        ret.priv_key = priv_key
+        ret.address = w3.eth.account.privateKeyToAccount(priv_key).address
+        return ret
+
+    def connect(self):
         self.w3 = Web3(HTTPProvider(self.eth_uri))
         self.w3.middleware_stack.inject(geth_poa_middleware, layer=0)
 
-        self.nonce = 0
-        self.priv_key = None
-        self.account = None
-
-    def connect(self, keyfile, password):
-        self.priv_key = self.w3.eth.account.decrypt(keyfile.read(), password)
-        self.account = self.w3.eth.account.privateKeyToAccount(self.priv_key).address
-
-        logger.info('Connected to ethereum client at %s, network id: %s, using account %s', self.eth_uri,
-                    self.w3.version.network, self.account)
-
+        logger.info('Connected to ethereum client at %s, network id: %s', self.eth_uri, self.w3.version.network)
         self.__preflight_checks()
+
+    def unlock_keyfile(self, keyfile, password):
+        self.priv_key = Account.decrypt(keyfile.read(), password)
+        self.address = Account.privateKeyToAccount(self.priv_key).address
 
     def __preflight_checks(self):
         if self.network_id != int(self.w3.version.network):
@@ -70,10 +79,14 @@ class Network(object):
         self.nonce = self.__get_nonce()
 
     def __get_nonce(self):
+        if self.address is None:
+            logger.error('No account set, cannot fetch nonce')
+            return
+
         last_nonce = -1
         while True:
             # Also include transactions in txpool
-            nonce = self.w3.eth.getTransactionCount(self.account, 'pending')
+            nonce = self.w3.eth.getTransactionCount(self.address, 'pending')
 
             if nonce == last_nonce:
                 logger.info('Settled on transaction count %s', nonce)
@@ -117,27 +130,6 @@ class Network(object):
         # XXX: Right now everything is synchronous so we don't need to lock
         if increment_nonce:
             self.nonce += 1
-
-        return ret
-
-    def latest_block(self):
-        return self.w3.eth.getBlock('latest')
-
-    def latest_block_filter(self):
-        return self.w3.eth.filter('latest')
-
-    def get_transactions(self, list_of_tx_hashes):
-        ret = []
-        for tx_hash in list_of_tx_hashes:
-            tx = self.w3.eth.getTransaction(tx_hash)
-            ret.append(tx)
-        return ret
-
-    def balance(self, address, block_identifier='latest'):
-        return self.w3.eth.getBalance(address, block_identifier)
-
-    def get_contract(self, abi, address):
-        return self.w3.eth.contract(abi=abi, address=address)
 
     def sign_transaction(self, tx):
         logger.info('Signing transaction: %s', tx)
