@@ -131,6 +131,8 @@ class Network(object):
         if increment_nonce:
             self.nonce += 1
 
+        return ret
+
     def sign_transaction(self, tx):
         logger.info('Signing transaction: %s', tx)
         return self.w3.eth.account.signTransaction(tx, self.priv_key)
