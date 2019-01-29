@@ -1,5 +1,8 @@
 # Contractor
 
+[![pipeline status](https://gitlab.polyswarm.io/externalci/contractor/badges/master/pipeline.svg)](https://gitlab.polyswarm.io/externalci/contractor/commits/master)
+[![coverage report](https://gitlab.polyswarm.io/externalci/contractor/badges/master/coverage.svg)](https://gitlab.polyswarm.io/externalci/contractor/commits/master)
+
 Deploy contracts without truffle
 
 Clone with `--recursive` or run `git submodule update --init --recursive` to fetch all submodules
