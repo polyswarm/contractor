@@ -105,7 +105,7 @@ class ERC20Relay(TestContract):
         self.owner = None
 
     def config(self, chain):
-        return {'fee_wallet': self.fee_wallet, 'verifiers': self.verifiers}
+        return {'fee_wallet': self.fee_wallet.address, 'verifiers': [v.address for v in self.verifiers]}
 
 
 @pytest.fixture(scope='session')
