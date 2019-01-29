@@ -3,12 +3,12 @@ from setuptools import find_packages, setup
 
 def parse_requirements():
     with open('requirements.txt', 'r') as f:
-        return f.read().splitlines()
+        return [r for r in f.read().splitlines() if not r.startswith('git')]
 
 
 setup(
     name='contractor',
-    version='0.1.0',
+    version='0.2.0',
     description='Utilities for Ethereum smart contract development and deployment',
     author='PolySwarm Developers',
     author_email='info@polyswarm.io',
