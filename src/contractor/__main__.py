@@ -4,7 +4,7 @@ import sys
 
 from contractor import db, steps
 from contractor.analyses import slither_analyze_directory, solium_analyze_directory
-from contractor.compiler import compile_directory, DEFAULT_SOLC_VERSION
+from contractor.compiler import configure_compiler, compile_directory, DEFAULT_SOLC_VERSION
 from contractor.config import Config
 from contractor.consul import ConsulClient
 from contractor.deployer import Deployer
@@ -21,6 +21,15 @@ colorama.init()
 def cli(ctx):
     logging.basicConfig(level=logging.INFO)
     ctx.ensure_object(dict)
+
+
+@cli.command()
+@click.option('--solc-version', default=DEFAULT_SOLC_VERSION,
+              help='Version of solc to compile with')
+@click.pass_context
+def install_solc(ctx, solc_version):
+    solc_path = configure_compiler(solc_version)
+    click.echo('solc verison {} installed to {}'.format(solc_version, solc_path))
 
 
 @cli.command()
@@ -49,7 +58,7 @@ def analyze(ctx):
 
 
 @analyze.command()
-@click.option('--solc-version', default='v0.4.25',
+@click.option('--solc-version', default=DEFAULT_SOLC_VERSION,
               help='Version of solc to compile with')
 @click.option('-i', '--srcdir', type=click.Path(exists=True, file_okay=False), default='contracts',
               help='Directory containing the solidity source to compile')

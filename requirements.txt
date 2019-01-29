@@ -12,9 +12,9 @@ pytest-cov==2.6.0
 pytest-xdist==1.26.1
 python-consul==1.1.0
 PyYaml==3.13
-slither-analyzer==0.3.1
+slither-analyzer==0.5.1
 SQLAlchemy==1.2.14
 toposort==1.5
 tabulate==0.8.2
 web3==4.8.1
-git+https://github.com/polyswarm/py-solc.git@feature/0-5-0#egg=py-solc
+git+https://github.com/polyswarm/py-solc.git@feature/0-5-3#egg=py-solc
