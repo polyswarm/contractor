@@ -19,12 +19,16 @@ GAS_LIMIT = 10000000
 
 
 class TestAccount(object):
+    """Encapsulate a random private key added to our eth_tester instance"""
+
     def __init__(self, eth_tester):
         self.priv_key = Account.create().privateKey
         self.address = eth_tester.add_account(self.priv_key.hex())
 
 
 class TestContract(object):
+    """Encapsulate a tested contract and its associated config"""
+
     def __init__(self):
         self.contract = None
 
@@ -51,35 +55,42 @@ class TestContract(object):
 
 
 class NectarToken(TestContract):
-    def __init__(self, users):
+    def __init__(self, users, mint=True):
         super().__init__()
         self.users = users
+        self.mint = mint
+        self.owner = None
 
     def config(self, chain):
-        return {'users': [u.address for u in self.users]}
+        return {'users': [u.address for u in self.users], 'mint': self.mint}
 
 
 class BountyRegistry(TestContract):
-    def __init__(self, nectar_token, ambassadors, experts, arbiters):
+    def __init__(self, nectar_token, stake_amount, arbiter_vote_window, ambassadors, experts, arbiters):
         super().__init__()
         self.nectar_token = nectar_token
+        self.stake_amount = stake_amount
+        self.arbiter_vote_window = arbiter_vote_window
         self.ambassadors = ambassadors
         self.experts = experts
         self.arbiters = arbiters
+        self.owner = None
 
     def config(self, chain):
-        return {'arbiters': [a.address for a in self.arbiters]}
+        return {'arbiters': [a.address for a in self.arbiters], 'arbiter_vote_window': self.arbiter_vote_window}
 
 
 class ArbiterStaking(TestContract):
-    def __init__(self, nectar_token, bounty_registry, arbiter):
+    def __init__(self, nectar_token, bounty_registry, stake_duration, arbiter):
         super().__init__()
         self.nectar_token = nectar_token
         self.bounty_registry = bounty_registry
+        self.stake_duration = stake_duration
         self.arbiter = arbiter
+        self.owner = None
 
     def config(self, chain):
-        return {'stake_duration': 100}
+        return {'stake_duration': self.stake_duration}
 
 
 class ERC20Relay(TestContract):
@@ -91,9 +102,10 @@ class ERC20Relay(TestContract):
         self.verifiers = verifiers
         self.verifier_manager = verifier_manager
         self.fee_manager = fee_manager
+        self.owner = None
 
     def config(self, chain):
-        return {'stake_duration': 100}
+        return {'fee_wallet': self.fee_wallet, 'verifiers': self.verifiers}
 
 
 @pytest.fixture(scope='session')
@@ -119,8 +131,22 @@ def eth_tester():
 
 @pytest.fixture
 def web3(eth_tester):
+    def zero_gas_price_middleware(make_request, web3):
+        def middleware(method, params):
+            if method == 'eth_sendTransaction' or method == 'eth_estimateGas':
+                transaction = params[0]
+                transaction['gasPrice'] = 0
+                return make_request(method, [transaction])
+
+            return make_request(method, params)
+
+        return middleware
+
     provider = EthereumTesterProvider(eth_tester)
-    return Web3(provider)
+    ret = Web3(provider)
+    ret.middleware_stack.inject(zero_gas_price_middleware, layer=0)
+
+    return ret
 
 
 def deploy(config, chain, artifacts, eth_tester, web3):
@@ -134,39 +160,36 @@ def deploy(config, chain, artifacts, eth_tester, web3):
 
 
 @pytest.fixture
+def nectar_token(artifacts, eth_tester, web3):
+    chain = Chain.HOMECHAIN
+    users = [TestAccount(eth_tester) for _ in range(10)]
+
+    nectar_token = NectarToken(users)
+
+    config = {
+        'NectarToken': nectar_token.config(chain),
+    }
+
+    network, deployer = deploy(config, chain, artifacts, eth_tester, web3)
+
+    nectar_token.bind(deployer.contracts['NectarToken'])
+    nectar_token.owner = network.address
+
+    NectarTokenFixture = namedtuple('NectarTokenFixture', ('network', 'deployer', 'NectarToken'))
+    return NectarTokenFixture(network, deployer, nectar_token)
+
+
+@pytest.fixture
 def bounty_registry(artifacts, eth_tester, web3):
-    chain = Chain.SIDECHAIN
+    chain = Chain.HOMECHAIN
     ambassadors = [TestAccount(eth_tester) for _ in range(3)]
     experts = [TestAccount(eth_tester) for _ in range(2)]
     arbiters = [TestAccount(eth_tester) for _ in range(4)]
 
     users = ambassadors + experts + arbiters
     nectar_token = NectarToken(users)
-    bounty_registry = BountyRegistry(nectar_token, ambassadors, experts, arbiters)
-
-    config = {
-        'NectarToken': nectar_token.config(chain),
-        'BountyRegistry': bounty_registry.config(chain),
-    }
-
-    network, deployer = deploy(config, chain, artifacts, eth_tester, web3)
-
-    nectar_token.bind(deployer.contracts['NectarToken'])
-    bounty_registry.bind(deployer.contracts['BountyRegistry'])
-
-    BountyRegistryFixture = namedtuple('BountyRegistryFixture',
-                                       ('network', 'deployer', 'NectarToken', 'BountyRegistry'))
-    return BountyRegistryFixture(network, deployer, nectar_token, bounty_registry)
-
-
-@pytest.fixture
-def arbiter_staking(artifacts, eth_tester, web3):
-    chain = Chain.SIDECHAIN
-    arbiter = TestAccount(eth_tester)
-
-    nectar_token = NectarToken([arbiter])
-    bounty_registry = BountyRegistry(nectar_token, [], [], [arbiter])
-    arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, arbiter)
+    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, ambassadors, experts, arbiters)
+    arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, 100, arbiters[0])
 
     config = {
         'NectarToken': nectar_token.config(chain),
@@ -177,8 +200,46 @@ def arbiter_staking(artifacts, eth_tester, web3):
     network, deployer = deploy(config, chain, artifacts, eth_tester, web3)
 
     nectar_token.bind(deployer.contracts['NectarToken'])
+    nectar_token.owner = network.address
     bounty_registry.bind(deployer.contracts['BountyRegistry'])
+    bounty_registry.owner = network.address
     arbiter_staking.bind(deployer.contracts['ArbiterStaking'])
+    arbiter_staking.owner = network.address
+
+    # Stake all arbiters to avoid settle div by zero
+    for arbiter in arbiters:
+        nectar_token.functions.approve(arbiter_staking.address, bounty_registry.stake_amount).transact(
+            {'from': arbiter.address})
+        arbiter_staking.functions.deposit(bounty_registry.stake_amount).transact({'from': arbiter.address})
+
+    BountyRegistryFixture = namedtuple('BountyRegistryFixture',
+                                       ('network', 'deployer', 'NectarToken', 'BountyRegistry', 'ArbiterStaking'))
+    return BountyRegistryFixture(network, deployer, nectar_token, bounty_registry, arbiter_staking)
+
+
+@pytest.fixture
+def arbiter_staking(artifacts, eth_tester, web3):
+    chain = Chain.HOMECHAIN
+    arbiter = TestAccount(eth_tester)
+
+    nectar_token = NectarToken([arbiter])
+    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, [], [], [arbiter])
+    arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, 100, arbiter)
+
+    config = {
+        'NectarToken': nectar_token.config(chain),
+        'BountyRegistry': bounty_registry.config(chain),
+        'ArbiterStaking': arbiter_staking.config(chain),
+    }
+
+    network, deployer = deploy(config, chain, artifacts, eth_tester, web3)
+
+    nectar_token.bind(deployer.contracts['NectarToken'])
+    nectar_token.owner = network.address
+    bounty_registry.bind(deployer.contracts['BountyRegistry'])
+    bounty_registry.owner = network.address
+    arbiter_staking.bind(deployer.contracts['ArbiterStaking'])
+    arbiter_staking.owner = network.address
 
     ArbiterStakingFixture = namedtuple('ArbiterStakingFixture',
                                        ('network', 'deployer', 'NectarToken', 'BountyRegistry', 'ArbiterStaking'))
@@ -187,7 +248,7 @@ def arbiter_staking(artifacts, eth_tester, web3):
 
 @pytest.fixture
 def erc20_relay(artifacts, eth_tester, web3):
-    chain = Chain.SIDECHAIN
+    chain = Chain.HOMECHAIN
     fee_wallet = TestAccount(eth_tester)
     users = [TestAccount(eth_tester) for _ in range(2)]
     verifiers = [TestAccount(eth_tester) for _ in range(3)]
@@ -205,7 +266,9 @@ def erc20_relay(artifacts, eth_tester, web3):
     network, deployer = deploy(config, chain, artifacts, eth_tester, web3)
 
     nectar_token.bind(deployer.contracts['NectarToken'])
+    nectar_token.owner = network.address
     erc20_relay.bind(deployer.contracts['ERC20Relay'])
+    erc20_relay.owner = network.address
 
     ERC20RelayFixture = namedtuple('ERC20RelayFixture',
                                    ('network', 'deployer', 'NectarToken', 'ERC20Relay'))

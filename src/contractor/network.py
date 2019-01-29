@@ -176,3 +176,7 @@ class Network(object):
         if not self.check_transactions(txhashes):
             raise Exception('Transaction failed, check network state')
         return receipts
+
+    def wait_and_process_receipt(self, txhash, event):
+        receipt = self.wait_and_check_transaction(txhash)
+        return event.processReceipt(receipt)
