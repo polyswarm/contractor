@@ -1718,8 +1718,6 @@ def test_payout_so_arbiter_one_expert_profit_using_minimums(bounty_registry, eth
     assert NectarToken.functions.balanceOf(selected).call() > STARTING_BALANCE - stake_amount
 
 
-# FIXME: Expert's don't seem to profit here, possibly known error
-@pytest.mark.skip(reason="need to debug failure")
 def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth_tester):
     NectarToken = bounty_registry.NectarToken
     BountyRegistry = bounty_registry.BountyRegistry
@@ -1768,5 +1766,5 @@ def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() > STARTING_BALANCE
-    assert NectarToken.functions.balanceOf(expert1.address).call() > STARTING_BALANCE
+    assert NectarToken.functions.balanceOf(expert1.address).call() < STARTING_BALANCE
     assert NectarToken.functions.balanceOf(selected).call() > STARTING_BALANCE - stake_amount

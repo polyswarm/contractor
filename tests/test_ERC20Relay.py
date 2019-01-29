@@ -370,7 +370,7 @@ def test_verifiers_should_be_allowed_to_anchor_blocks(erc20_relay):
     txhash = ERC20Relay.functions.anchor(ZERO_HASH, 0).transact({'from': verifiers[1].address})
     ERC20Relay.functions.anchor(ZERO_HASH, 0).transact({'from': verifiers[2].address})
 
-    anchor = network.wait_and_process_receipt(txhash, ERC20Relay.events.AnchoredBlock)
+    anchor = network.wait_and_process_receipt(txhash, ERC20Relay.events.AnchoredBlock())
     assert anchor[0].args['blockHash'] == ZERO_HASH
     assert anchor[0].args['blockNumber'] == 0
 
