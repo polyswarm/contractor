@@ -2,7 +2,6 @@ import json
 import logging
 import os
 
-from base64 import b64encode
 from consul import Consul
 from consul.base import Timeout
 from urllib.parse import urlparse

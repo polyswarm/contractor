@@ -50,12 +50,14 @@ class Network(object):
         ret.address = w3.eth.account.privateKeyToAccount(priv_key).address
         return ret
 
-    def connect(self):
+    def connect(self, skip_checks=False):
         self.w3 = Web3(HTTPProvider(self.eth_uri))
         self.w3.middleware_stack.inject(geth_poa_middleware, layer=0)
 
         logger.info('Connected to ethereum client at %s, network id: %s', self.eth_uri, self.w3.version.network)
-        self.__preflight_checks()
+
+        if not skip_checks:
+            self.__preflight_checks()
 
     def unlock_keyfile(self, keyfile, password):
         self.priv_key = Account.decrypt(keyfile.read(), password)
@@ -80,7 +82,7 @@ class Network(object):
 
     def __get_nonce(self):
         if self.address is None:
-            logger.error('No account set, cannot fetch nonce')
+            logger.warning('No account set, cannot fetch nonce')
             return
 
         last_nonce = -1

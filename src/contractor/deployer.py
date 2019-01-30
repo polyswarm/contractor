@@ -171,4 +171,5 @@ class Deployer(object):
 
         deployment_results = json.load(f)
         for key, address in deployment_results.items():
-            self.at(snake_case_to_camel_case(key), address)
+            if key.endswith('_address'):
+                self.at(snake_case_to_camel_case('_'.join(key.split('_')[:-1])), address)

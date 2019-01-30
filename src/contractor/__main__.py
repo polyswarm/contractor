@@ -6,12 +6,14 @@ from contractor import db, steps
 from contractor.analyses import slither_analyze_directory, solium_analyze_directory
 from contractor.compiler import configure_compiler, compile_directory, DEFAULT_SOLC_VERSION
 from contractor.config import Config
-from contractor.consul import ConsulClient
+from contractor.consulclient import ConsulClient
 from contractor.deployer import Deployer
 from contractor.network import Chain
-from contractor.watch import Watch
+from contractor.util import wait_for_file
+from contractor.watch import Token, Watch
 
 import colorama
+import requests
 
 colorama.init()
 
@@ -113,7 +115,12 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
 
     network = config.network_configs[network].create()
     network.unlock_keyfile(keyfile, password)
-    network.connect()
+
+    try:
+        network.connect()
+    except requests.exceptions.RequestException:
+        click.echo('Could not connect to Ethereum client, exiting')
+        sys.exit(1)
 
     session = None
     if db_uri is not None:
@@ -148,18 +155,25 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
               help='Cumulatively track balance change and function call counts')
 @click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
               help='Directory containing the compiled artifacts to deploy')
-@click.option('-i', '--input', type=click.Path(exists=True, dir_okay=False), required=False,
+@click.option('-i', '--input', type=click.Path(dir_okay=False), required=False,
               help='Input file containing the deployed addresses of our artifacts')
+@click.option('-t', '--timeout', type=int, default=60,
+              help='Time to wait for input file to exist')
 @click.pass_context
-def watch(ctx, config, community, network, chain, token, verbose, cumulative, artifactdir, input):
+def watch(ctx, config, community, network, chain, token, verbose, cumulative, artifactdir, input, timeout):
     config = Config.from_yaml(config, Chain.from_str(chain))
+    token = Token.from_str(token)
 
     if network not in config.network_configs:
         click.echo('No such network {0} defined, check configuration', network)
         sys.exit(1)
 
     network = config.network_configs[network].create()
-    network.connect()
+    try:
+        network.connect(skip_checks=True)
+    except requests.exceptions.RequestException:
+        click.echo('Could not connect to Ethereum client, exiting')
+        sys.exit(1)
 
     deployer = Deployer(community, network, artifactdir)
 
@@ -167,10 +181,22 @@ def watch(ctx, config, community, network, chain, token, verbose, cumulative, ar
     if not input:
         input = chain + 'chain.json'
 
-    deployer.load_results(input)
+    click.echo('Waiting for deployment results')
+    if not wait_for_file(input, timeout):
+        click.echo('Timeout waiting for deployment results file')
+        sys.exit(1)
 
-    watcher = Watch(config, network, deployer, token, cumulative, verbosity)
-    watcher.watch()
+    with open(input, 'r') as f:
+        deployer.load_results(f)
+
+    click.echo('Watching for events on chain {}'.format(chain))
+    watcher = Watch(config, token, cumulative, verbose)
+
+    try:
+        watcher.watch(network, deployer)
+    except requests.exceptions.RequestException:
+        click.echo('Connection to Ethereum client lost, exiting')
+        sys.exit(0)
 
 
 @cli.group()

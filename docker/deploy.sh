@@ -2,8 +2,8 @@
 
 set -ex
 
-rm -rf consul
-mkdir consul
+mkdir -p consul
+rm -f consul/*.json
 
 # Pull any existing config for bytecode detection
 if [ ! -z "$CONSUL_URI" ]; then

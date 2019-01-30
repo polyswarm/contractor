@@ -1,5 +1,7 @@
+import os
 import subprocess
 import sys
+import time
 
 
 def call_with_output(cmd, file=sys.stdout.buffer):
@@ -15,3 +17,15 @@ def call_with_output(cmd, file=sys.stdout.buffer):
             file.write(output)
 
     return p.wait(timeout=1)
+
+
+def wait_for_file(path, timeout=60):
+    t = 0
+    while t < timeout:
+        if os.path.exists(path) and os.path.isfile(path):
+            return True
+
+        time.sleep(1)
+        t += 1
+
+    return False
