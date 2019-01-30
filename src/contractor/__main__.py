@@ -151,7 +151,7 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
 @click.option('-i', '--input', type=click.Path(exists=True, dir_okay=False), required=False,
               help='Input file containing the deployed addresses of our artifacts')
 @click.pass_context
-def watch(ctx, config, community, network, chain, token, verbosity, cumulative, artifactdir, input):
+def watch(ctx, config, community, network, chain, token, verbose, cumulative, artifactdir, input):
     config = Config.from_yaml(config, Chain.from_str(chain))
 
     if network not in config.network_configs:
