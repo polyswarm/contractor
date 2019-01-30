@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
         build-essential \
         git \
         jq \
+        libssl-dev \
         wget \
     && rm -rf /var/lib/apt/lists/*
 

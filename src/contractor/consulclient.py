@@ -2,15 +2,14 @@ import json
 import logging
 import os
 
-from base64 import b64encode
 from consul import Consul
 from consul.base import Timeout
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
-INITIAL_WAIT='5s'
-LONG_WAIT='2m'
+INITIAL_WAIT = '5s'
+LONG_WAIT = '2m'
 
 
 class ConsulClient(object):
@@ -68,7 +67,6 @@ class ConsulClient(object):
                 except ValueError as e:
                     logger.error('Error parsing %s as json, skipping: %s', filename, e)
                     continue
-
 
                 # TODO: Restore transactional update, causing breakage in infrastructure
                 logger.info('Pushing contents of %s to consul', filename)

@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 
 CONTRACT_NAME = 'OfferRegistry'
 
+
 class OfferRegistry(Step):
     DEPENDENCIES = {'NectarToken'}
 

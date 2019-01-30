@@ -30,13 +30,17 @@ class Step(object, metaclass=__MetaRegistry):
         return True
 
 
-def run(network, deployer):
+def run(network, deployer, to_deploy=None):
     # Load all our submodules so they get registered
     for importer, modname, ispkg in pkgutil.iter_modules(sys.modules[__name__].__path__):
         importer.find_module(modname).load_module(modname)
 
-    depgraph = {k: v.DEPENDENCIES for k, v in REGISTRY.items()}
-    ordered_steps = [(k, REGISTRY[k]()) for k in toposort_flatten(depgraph)]
+    contracts = REGISTRY
+    if to_deploy is not None:
+        contracts = {k: v for k, v in REGISTRY.items() if k in to_deploy}
+
+    depgraph = {k: v.DEPENDENCIES for k, v in contracts.items()}
+    ordered_steps = [(k, contracts[k]()) for k in toposort_flatten(depgraph)]
 
     logger.info('Deployment order: %s', ', '.join([x[0] for x in ordered_steps]))
 

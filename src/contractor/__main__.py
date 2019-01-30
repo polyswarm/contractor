@@ -4,18 +4,34 @@ import sys
 
 from contractor import db, steps
 from contractor.analyses import slither_analyze_directory, solium_analyze_directory
-from contractor.compiler import compile_directory, DEFAULT_SOLC_VERSION
+from contractor.compiler import configure_compiler, compile_directory, DEFAULT_SOLC_VERSION
 from contractor.config import Config
-from contractor.consul import ConsulClient
+from contractor.consulclient import ConsulClient
 from contractor.deployer import Deployer
 from contractor.network import Chain
-from contractor.watch import Watch
+from contractor.util import wait_for_file
+from contractor.watch import Token, Watch
+
+import colorama
+import requests
+
+colorama.init()
+
 
 @click.group()
 @click.pass_context
 def cli(ctx):
     logging.basicConfig(level=logging.INFO)
     ctx.ensure_object(dict)
+
+
+@cli.command()
+@click.option('--solc-version', default=DEFAULT_SOLC_VERSION,
+              help='Version of solc to compile with')
+@click.pass_context
+def install_solc(ctx, solc_version):
+    solc_path = configure_compiler(solc_version)
+    click.echo('solc verison {} installed to {}'.format(solc_version, solc_path))
 
 
 @cli.command()
@@ -44,7 +60,7 @@ def analyze(ctx):
 
 
 @analyze.command()
-@click.option('--solc-version', default='v0.4.25',
+@click.option('--solc-version', default=DEFAULT_SOLC_VERSION,
               help='Version of solc to compile with')
 @click.option('-i', '--srcdir', type=click.Path(exists=True, file_okay=False), default='contracts',
               help='Directory containing the solidity source to compile')
@@ -85,7 +101,7 @@ def solium(ctx, srcdir):
               help='URI for the deployment database')
 @click.option('--git/--no-git', default=True,
               help='Record git commit hash and tree status, assumes artifactdir is in repository')
-@click.option('-i', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
+@click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
               help='Directory containing the compiled artifacts to deploy')
 @click.option('-o', '--output', type=click.Path(dir_okay=False, writable=True), required=False,
               help='File to output deployment results json to')
@@ -98,7 +114,13 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
         sys.exit(1)
 
     network = config.network_configs[network].create()
-    network.connect(keyfile, password)
+    network.unlock_keyfile(keyfile, password)
+
+    try:
+        network.connect()
+    except requests.exceptions.RequestException:
+        click.echo('Could not connect to Ethereum client, exiting')
+        sys.exit(1)
 
     session = None
     if db_uri is not None:
@@ -127,22 +149,54 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
               help='Is this deployment on the homechain or sidechain?')
 @click.option('--token', envvar='TOKEN', required=True, type=click.Choice(('nectar', 'ether')),
               help='Which token balance you want to monitor')
-@click.option('--verbosity', type=click.Choice((1, 2)), envvar='VERBOSITY', required=False,
-              help='1 for minimum logs or 2 all the log block, tx, and function input logs', default=1)
-@click.option('--cumulative', envvar='CUMULATIVE', is_flag=True, required=False,
-              help='If balance change and function call counts should be cumulatively added or compared to the last block', default=False)
+@click.option('-v', '--verbose', count=True,
+              help='Verbosity level')
+@click.option('--cumulative', envvar='CUMULATIVE', is_flag=True,
+              help='Cumulatively track balance change and function call counts')
+@click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
+              help='Directory containing the compiled artifacts to deploy')
+@click.option('-i', '--input', type=click.Path(dir_okay=False), required=False,
+              help='Input file containing the deployed addresses of our artifacts')
+@click.option('-t', '--timeout', type=int, default=60,
+              help='Time to wait for input file to exist')
 @click.pass_context
-def watch(ctx, config, community, network, chain, token, verbosity, cumulative):
+def watch(ctx, config, community, network, chain, token, verbose, cumulative, artifactdir, input, timeout):
     config = Config.from_yaml(config, Chain.from_str(chain))
+    token = Token.from_str(token)
+
     if network not in config.network_configs:
         click.echo('No such network {0} defined, check configuration', network)
         sys.exit(1)
 
     network = config.network_configs[network].create()
-    deployer = Deployer(community, network, 'consul')
+    try:
+        network.connect(skip_checks=True)
+    except requests.exceptions.RequestException:
+        click.echo('Could not connect to Ethereum client, exiting')
+        sys.exit(1)
 
-    watcher = Watch(config, network, token, deployer, verbosity, cumulative)
-    watcher.watch()
+    deployer = Deployer(community, network, artifactdir)
+
+    # Default to homechain.json/sidechain.json
+    if not input:
+        input = chain + 'chain.json'
+
+    click.echo('Waiting for deployment results')
+    if not wait_for_file(input, timeout):
+        click.echo('Timeout waiting for deployment results file')
+        sys.exit(1)
+
+    with open(input, 'r') as f:
+        deployer.load_results(f)
+
+    click.echo('Watching for events on chain {}'.format(chain))
+    watcher = Watch(config, token, cumulative, verbose)
+
+    try:
+        watcher.watch(network, deployer)
+    except requests.exceptions.RequestException:
+        click.echo('Connection to Ethereum client lost, exiting')
+        sys.exit(0)
 
 
 @cli.group()
@@ -181,6 +235,7 @@ def pull(ctx, consul_uri, consul_token, community, wait, outdir):
 def push(ctx, consul_uri, consul_token, community, indir):
     c = ConsulClient(consul_uri, consul_token)
     c.push_config(community, indir)
+
 
 if __name__ == '__main__':
     cli(obj={})

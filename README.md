@@ -1,5 +1,8 @@
 # Contractor
 
+[![pipeline status](https://gitlab.polyswarm.io/externalci/contractor/badges/master/pipeline.svg)](https://gitlab.polyswarm.io/externalci/contractor/commits/master)
+[![coverage report](https://gitlab.polyswarm.io/externalci/contractor/badges/master/coverage.svg)](https://gitlab.polyswarm.io/externalci/contractor/commits/master)
+
 Deploy contracts without truffle
 
 Clone with `--recursive` or run `git submodule update --init --recursive` to fetch all submodules
@@ -33,6 +36,13 @@ Check out example config in `examples/example_config.yml`
 1. Create a subclass of `contractor.steps.Step`
 1. Declare any dependencies in the `DEPENDENCIES` set
 1. New step will be automatically picked up and ordered
+
+## Analysis
+
+Currently supported analyses:
+
+- [Solium/Ethlint](https://github.com/duaraghav8/Ethlint) - Requires `solium` in path
+- [Slither](https://github.com/trailofbits/slither) - Requires `slither` in path
 
 ## Tests
 

@@ -1,5 +1,7 @@
 import os
 
+import click
+
 from contractor.compiler import configure_compiler
 from contractor.util import call_with_output
 
@@ -24,4 +26,8 @@ def slither_analyze_directory(solc_version, src_dir, ext_dir=None, excludes=[]):
         cmd.extend(('--solc-args', '--ignore-missing ' + ' '.join(remappings)))
 
     cmd.append(src_dir)
-    return call_with_output(cmd)
+    try:
+        return call_with_output(cmd)
+    except FileNotFoundError:
+        click.echo('slither executable not found, is it installed and in PATH?')
+        return 1

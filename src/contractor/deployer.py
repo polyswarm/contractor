@@ -19,6 +19,16 @@ def camel_case_to_snake_case(s):
     return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
+# https://stackoverflow.com/questions/19053707/converting-snake-case-to-lower-camel-case-lowercamelcase
+# Unfortunate special case for ERC20Relay
+def snake_case_to_camel_case(s):
+    acronyms = {'ERC'}
+    ret = ''.join(c.title() for c in s.split('_'))
+    for a in acronyms:
+        ret = ret.replace(a.lower().title(), a)
+    return ret
+
+
 class Deployer(object):
     def __init__(self, community, network, artifactsdir, record_git_status=False, session=None):
         self.__community = community
@@ -90,7 +100,6 @@ class Deployer(object):
 
     def at(self, name, address, deployed=False):
         artifact = self.artifacts.get(name)
-
         if artifact is None:
             raise ValueError('No artifact {} in artifacts, have you compiled?'.format(name))
 
@@ -132,7 +141,7 @@ class Deployer(object):
 
         # Use our estimate but don't exceed gas limit defined in config
         try:
-            gas = int(call.estimateGas({'from': self.__network.account, **opts}) * GAS_MULTIPLIER)
+            gas = int(call.estimateGas({'from': self.__network.address, **opts}) * GAS_MULTIPLIER)
             opts['gas'] = min(opts['gas'], gas)
         except ValueError as e:
             logger.warning('Error estimating gas, bravely trying anyway: %s', e)
@@ -157,10 +166,10 @@ class Deployer(object):
         logger.debug('Deployment results: %s', json.dumps(results))
         json.dump(results, f)
 
-    def load_results(self, f, key_to_name):
+    def load_results(self, f):
         logger.info('Loading deployment results from json')
 
         deployment_results = json.load(f)
         for key, address in deployment_results.items():
-            if key in key_to_name:
-                self.at(key_to_name[key], address)
+            if key.endswith('_address'):
+                self.at(snake_case_to_camel_case('_'.join(key.split('_')[:-1])), address)
