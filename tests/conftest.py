@@ -15,7 +15,7 @@ from contractor.compiler import compile_directory
 from contractor.deployer import Deployer
 from contractor.network import Chain, Network
 
-GAS_LIMIT = 10000000
+GAS_LIMIT = 7500000
 
 
 class TestAccount(object):
@@ -125,7 +125,7 @@ def artifacts():
 @pytest.fixture
 def eth_tester():
     # Calls private method on PyEVMBackend but apparently this is the proper way to do this
-    genesis = PyEVMBackend._generate_genesis_params({'gas_limit': GAS_LIMIT})
+    genesis = PyEVMBackend._generate_genesis_params({'gas_limit': 2 * GAS_LIMIT})
     return EthereumTester(PyEVMBackend(genesis_parameters=genesis))
 
 
