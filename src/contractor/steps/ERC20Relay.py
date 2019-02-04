@@ -1,7 +1,7 @@
 import logging
 
 from contractor.steps import Step
-from contractor.network import Chain
+from contractor.network import Chain, ZERO_ADDRESS
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,6 @@ CONTRACT_NAME = 'ERC20Relay'
 TOTAL_SUPPLY = 1885913075851542181982426285
 # https://coinmarketcap.com/currencies/polyswarm/ retrieved on 5/28/18
 NCT_ETH_EXCHANGE_RATE = 80972
-ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
 class ERC20Relay(Step):
