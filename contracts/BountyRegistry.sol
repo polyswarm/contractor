@@ -148,7 +148,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow) Ownable() public {
         bountyFee = DEFAULT_BOUNTY_FEE;
-        assertionFee = DEFAULT_BOUNTY_FEE;
+        assertionFee = DEFAULT_ASSERTION_FEE;
 
         token = NectarToken(_token);
         staking = ArbiterStaking(_arbiterStaking);
@@ -278,7 +278,7 @@ contract BountyRegistry is Pausable, Ownable {
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
 
         // Assess fees and transfer bounty amount into escrow
-        token.safeTransferFrom(msg.sender, address(this), amount.add(BOUNTY_FEE));
+        token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
 
         bountiesByGuid[guid].guid = guid;
         bountiesByGuid[guid].author = msg.sender;
@@ -333,7 +333,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if the sender has already made an assertion
         require(expertAssertionResgistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
         // Assess fees and transfer bid amount into escrow
-        token.safeTransferFrom(msg.sender, address(this), bid.add(ASSERTION_FEE));
+        token.safeTransferFrom(msg.sender, address(this), bid.add(assertionFee));
 
         expertAssertionResgistryByGuid[bountyGuid][msg.sender] = true;
 
@@ -552,15 +552,15 @@ contract BountyRegistry is Pausable, Ownable {
 
         if (assertions.length == 0 && votes.length == 0) {
             // Refund the bounty amount and fees to ambassador
-            bountyRefund = bounty.numArtifacts.mul(bounty.amount.add(BOUNTY_FEE));
+            bountyRefund = bounty.numArtifacts.mul(bounty.amount.add(bountyFee));
         } else if (assertions.length == 0) {
             // Refund the bounty amount ambassador
             bountyRefund = bounty.amount.mul(bounty.numArtifacts);
         } else if (votes.length == 0) {
             // Refund bids, fees, and distribute the bounty amount evenly to experts
-            bountyRefund = BOUNTY_FEE.mul(bounty.numArtifacts);
+            bountyRefund = bountyFee.mul(bounty.numArtifacts);
             for (j = 0; j < assertions.length; j++) {
-                expertRewards[j] = expertRewards[j].add(ASSERTION_FEE);
+                expertRewards[j] = expertRewards[j].add(assertionFee);
                 expertRewards[j] = expertRewards[j].add(assertions[j].bid);
                 expertRewards[j] = expertRewards[j].add(bounty.amount.div(assertions.length));
                 expertRewards[j] = expertRewards[j].mul(bounty.numArtifacts);
@@ -628,7 +628,7 @@ contract BountyRegistry is Pausable, Ownable {
         }
 
         // Calculate rewards
-        uint256 pot = bounty.amount.add(BOUNTY_FEE.add(ASSERTION_FEE.mul(assertions.length)));
+        uint256 pot = bounty.amount.add(bountyFee.add(assertionFee.mul(assertions.length)));
         for (i = 0; i < assertions.length; i++) {
             pot = pot.add(assertions[i].bid);
         }
