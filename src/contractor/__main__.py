@@ -145,6 +145,60 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
               help='What community we are deploying for')
 @click.option('--network', required=True,
               help='What network to watch')
+@click.option('--keyfile', envvar='KEYFILE', type=click.File('r'), required=True,
+              help='Path to private key json file used to deploy')
+@click.option('--password', envvar='PASSWORD', prompt=True, hide_input=True,
+              help='Password used to decrypt private key')
+@click.option('--chain', type=click.Choice(('home', 'side')), required=True,
+              help='Is this deployment on the homechain or sidechain?')
+@click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
+              help='Directory containing the compiled artifacts to deploy')
+@click.option('-i', '--input', type=click.Path(dir_okay=False), required=False,
+              help='Input file containing the deployed addresses of our artifacts')
+@click.option('-t', '--timeout', type=int, default=60,
+              help='Time to wait for input file to exist')
+@click.pass_context
+def update_fees(ctx, config, community, network, keyfile, password, chain, artifactdir, input, timeout):
+    config = Config.from_yaml(config, Chain.from_str(chain))
+
+    if network not in config.network_configs:
+        click.echo('No such network {0} defined, check configuration', network)
+        sys.exit(1)
+
+    network = config.network_configs[network].create()
+    network.unlock_keyfile(keyfile, password)
+
+    try:
+        network.connect()
+    except requests.exceptions.RequestException:
+        click.echo('Could not connect to Ethereum client, exiting')
+        sys.exit(1)
+
+    deployer = Deployer(community, network, artifactdir)
+
+    # Default to homechain.json/sidechain.json
+    if not input:
+        input = chain + 'chain.json'
+
+    click.echo('Waiting for deployment results')
+    if not wait_for_file(input, timeout):
+        click.echo('Timeout waiting for deployment results file')
+        sys.exit(1)
+
+    with open(input, 'r') as f:
+        deployer.load_results(f)
+
+    BountyRegistry = deployer.contracts['BountyRegistry']
+    deployer.transact(BountyRegistry.functions.setBountyFee(63000000000000000))
+    deployer.transact(BountyRegistry.functions.setAssertionFee(31250000000000000))
+
+@cli.command()
+@click.option('--config', envvar='CONFIG', type=click.File('r'), required=True,
+              help='Path to yaml config file defining networks and users')
+@click.option('--community', envvar='COMMUNITY', required=True,
+              help='What community we are deploying for')
+@click.option('--network', required=True,
+              help='What network to watch')
 @click.option('--chain', type=click.Choice(('home', 'side')), required=True,
               help='Is this deployment on the homechain or sidechain?')
 @click.option('--token', envvar='TOKEN', required=True, type=click.Choice(('nectar', 'ether')),
@@ -197,7 +251,6 @@ def watch(ctx, config, community, network, chain, token, verbose, cumulative, ar
     except requests.exceptions.RequestException:
         click.echo('Connection to Ethereum client lost, exiting')
         sys.exit(0)
-
 
 @cli.group()
 @click.pass_context
