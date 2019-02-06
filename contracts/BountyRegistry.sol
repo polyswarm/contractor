@@ -101,10 +101,10 @@ contract BountyRegistry is Pausable, Ownable {
     ArbiterStaking public staking;
     NectarToken internal token;
 
-    uint256 public constant BOUNTY_FEE = 62500000000000000;
-    uint256 public constant ASSERTION_FEE = 31250000000000000;
     uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
     uint256 public constant ASSERTION_BID_MINIMUM = 62500000000000000;
+    uint256 public constant DEFAULT_BOUNTY_FEE = 62500000000000000;
+    uint256 public constant DEFAULT_ASSERTION_FEE = 31250000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
     uint256 public constant MAX_DURATION = 100; // BLOCKS
     uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
@@ -113,19 +113,33 @@ contract BountyRegistry is Pausable, Ownable {
     uint256 public constant VALID_HASH_PERIOD = 256; // number of blocks in the past you can still get a blockhash
 
 
+    uint256 public bountyFee;
+    uint256 public assertionFee;
+    address public feeManager;
+
+    event NewFeeManager(
+        address indexed previousManager,
+        address indexed newManager
+    );
+
+    event FeesUpdated(
+        uint256 bountyFee,
+        uint256 assertionFee
+    );
+
     uint256 public arbiterCount;
     uint256 public arbiterVoteWindow;
     uint128[] public bountyGuids;
-    mapping (uint128 => Bounty) public bountiesByGuid;
-    mapping (uint128 => Assertion[]) public assertionsByGuid;
-    mapping (uint128 => Vote[]) public votesByGuid;
-    mapping (uint128 => uint256[8]) public bloomByGuid;
-    mapping (uint128 => mapping (uint256 => uint256)) public quorumVotesByGuid;
-    mapping (address => bool) public arbiters;
-    mapping (uint256 => mapping (uint256 => uint256)) public voteCountByGuid;
-    mapping (uint256 => mapping (address => bool)) public arbiterVoteRegistryByGuid;
-    mapping (uint256 => mapping (address => bool)) public expertAssertionResgistryByGuid;
-    mapping (uint128 => mapping (address => bool)) public bountySettled;
+    mapping(uint128 => Bounty) public bountiesByGuid;
+    mapping(uint128 => Assertion[]) public assertionsByGuid;
+    mapping(uint128 => Vote[]) public votesByGuid;
+    mapping(uint128 => uint256[8]) public bloomByGuid;
+    mapping(uint128 => mapping(uint256 => uint256)) public quorumVotesByGuid;
+    mapping(address => bool) public arbiters;
+    mapping(uint256 => mapping(uint256 => uint256)) public voteCountByGuid;
+    mapping(uint256 => mapping(address => bool)) public arbiterVoteRegistryByGuid;
+    mapping(uint256 => mapping(address => bool)) public expertAssertionResgistryByGuid;
+    mapping(uint128 => mapping(address => bool)) public bountySettled;
 
     /**
      * Construct a new BountyRegistry
@@ -133,10 +147,52 @@ contract BountyRegistry is Pausable, Ownable {
      * @param _token address of NCT token to use
      */
     constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow) Ownable() public {
-        // transferOwnership(msg.sender);
+        bountyFee = DEFAULT_BOUNTY_FEE;
+        assertionFee = DEFAULT_ASSERTION_FEE;
+
         token = NectarToken(_token);
         staking = ArbiterStaking(_arbiterStaking);
         arbiterVoteWindow = _arbiterVoteWindow;
+    }
+
+    /** Function only callable by fee manager */
+    modifier onlyFeeManager() {
+        if (feeManager == address(0)) {
+            require(msg.sender == owner(), "Not a fee manager");
+        } else {
+            require(msg.sender == feeManager, "Not a fee manager");
+        }
+        _;
+    }
+
+    /**
+     * Set account which can update fees
+     *
+     * @param newFeeManager The new fee manager
+     */
+    function setFeeManager(address newFeeManager) external onlyOwner {
+        emit NewFeeManager(feeManager, newFeeManager);
+        feeManager = newFeeManager;
+    }
+
+    /**
+     * Set bounty fee in NCT
+     *
+     * @param newBountyFee The new bounty fee in NCT
+     */
+    function setBountyFee(uint256 newBountyFee) external onlyFeeManager {
+        bountyFee = newBountyFee;
+        emit FeesUpdated(bountyFee, assertionFee);
+    }
+
+    /**
+     * Set assertion fee in NCT
+     *
+     * @param newAssertionFee The new assertion fee in NCT
+     */
+    function setAssertionFee(uint256 newAssertionFee) external onlyFeeManager {
+        assertionFee = newAssertionFee;
+        emit FeesUpdated(bountyFee, assertionFee);
     }
 
     /**
@@ -222,7 +278,7 @@ contract BountyRegistry is Pausable, Ownable {
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
 
         // Assess fees and transfer bounty amount into escrow
-        token.safeTransferFrom(msg.sender, address(this), amount.add(BOUNTY_FEE));
+        token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
 
         bountiesByGuid[guid].guid = guid;
         bountiesByGuid[guid].author = msg.sender;
@@ -277,7 +333,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if the sender has already made an assertion
         require(expertAssertionResgistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
         // Assess fees and transfer bid amount into escrow
-        token.safeTransferFrom(msg.sender, address(this), bid.add(ASSERTION_FEE));
+        token.safeTransferFrom(msg.sender, address(this), bid.add(assertionFee));
 
         expertAssertionResgistryByGuid[bountyGuid][msg.sender] = true;
 
@@ -496,15 +552,15 @@ contract BountyRegistry is Pausable, Ownable {
 
         if (assertions.length == 0 && votes.length == 0) {
             // Refund the bounty amount and fees to ambassador
-            bountyRefund = bounty.numArtifacts.mul(bounty.amount.add(BOUNTY_FEE));
+            bountyRefund = bounty.numArtifacts.mul(bounty.amount.add(bountyFee));
         } else if (assertions.length == 0) {
             // Refund the bounty amount ambassador
             bountyRefund = bounty.amount.mul(bounty.numArtifacts);
         } else if (votes.length == 0) {
             // Refund bids, fees, and distribute the bounty amount evenly to experts
-            bountyRefund = BOUNTY_FEE.mul(bounty.numArtifacts);
+            bountyRefund = bountyFee.mul(bounty.numArtifacts);
             for (j = 0; j < assertions.length; j++) {
-                expertRewards[j] = expertRewards[j].add(ASSERTION_FEE);
+                expertRewards[j] = expertRewards[j].add(assertionFee);
                 expertRewards[j] = expertRewards[j].add(assertions[j].bid);
                 expertRewards[j] = expertRewards[j].add(bounty.amount.div(assertions.length));
                 expertRewards[j] = expertRewards[j].mul(bounty.numArtifacts);
@@ -572,7 +628,7 @@ contract BountyRegistry is Pausable, Ownable {
         }
 
         // Calculate rewards
-        uint256 pot = bounty.amount.add(BOUNTY_FEE.add(ASSERTION_FEE.mul(assertions.length)));
+        uint256 pot = bounty.amount.add(bountyFee.add(assertionFee.mul(assertions.length)));
         for (i = 0; i < assertions.length; i++) {
             pot = pot.add(assertions[i].bid);
         }
