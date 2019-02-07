@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
         git \
         jq \
         libssl-dev \
+        libudev-dev \
+        libusb-1.0-0-dev \
         wget \
     && rm -rf /var/lib/apt/lists/*
 

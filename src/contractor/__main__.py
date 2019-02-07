@@ -91,10 +91,16 @@ def solium(ctx, srcdir):
               help='What community we are deploying for')
 @click.option('--network', required=True,
               help='What network to deploy to')
-@click.option('--keyfile', envvar='KEYFILE', type=click.File('r'), required=True,
+@click.option('--keyfile', envvar='KEYFILE', type=click.File('r'),
               help='Path to private key json file used to deploy')
-@click.option('--password', envvar='PASSWORD', prompt=True, hide_input=True,
+@click.option('--password', envvar='PASSWORD',
               help='Password used to decrypt private key')
+@click.option('--trezor', is_flag=True,
+              help='Sign transactions with a Trezor')
+@click.option('--trezor-path', envvar='TREZOR_PATH',
+              help='Path to Trezor device')
+@click.option('--derivation-path', default='m/44\'/60\'/0\'/0/0',
+              help='Derivation path of key to use on Trezor')
 @click.option('--chain', type=click.Choice(('home', 'side')), required=True,
               help='Is this deployment on the homechain or sidechain?')
 @click.option('--db-uri', envvar='DB_URI',
@@ -106,7 +112,9 @@ def solium(ctx, srcdir):
 @click.option('-o', '--output', type=click.Path(dir_okay=False, writable=True), required=False,
               help='File to output deployment results json to')
 @click.pass_context
-def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, git, artifactdir, output):
+def deploy(ctx, config, community, network, keyfile, password, trezor, trezor_path, derivation_path, chain, db_uri, git,
+           artifactdir, output):
+
     config = Config.from_yaml(config, Chain.from_str(chain))
 
     if network not in config.network_configs:
@@ -114,7 +122,22 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
         sys.exit(1)
 
     network = config.network_configs[network].create()
-    network.unlock_keyfile(keyfile, password)
+
+    # Currently deploy is the only command which signs transactions, might need to split this off if other commands are
+    # later added which use this functionality
+    if trezor:
+        if not network.unlock_trezor(trezor_path, derivation_path):
+            sys.exit(1)
+    else:
+        if keyfile is None:
+            click.echo('No keyfile provided')
+            sys.exit(1)
+
+        if password is None:
+            password = click.prompt('Enter password for keyfile {}'.format(keyfile), default='', hide_input=True)
+
+        if not network.unlock_keyfile(keyfile, password):
+            sys.exit(1)
 
     try:
         network.connect()
@@ -147,11 +170,11 @@ def deploy(ctx, config, community, network, keyfile, password, chain, db_uri, gi
               help='What network to watch')
 @click.option('--chain', type=click.Choice(('home', 'side')), required=True,
               help='Is this deployment on the homechain or sidechain?')
-@click.option('--token', envvar='TOKEN', required=True, type=click.Choice(('nectar', 'ether')),
+@click.option('--token', required=True, type=click.Choice(('nectar', 'ether')),
               help='Which token balance you want to monitor')
 @click.option('-v', '--verbose', count=True,
               help='Verbosity level')
-@click.option('--cumulative', envvar='CUMULATIVE', is_flag=True,
+@click.option('--cumulative', is_flag=True,
               help='Cumulatively track balance change and function call counts')
 @click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
               help='Directory containing the compiled artifacts to deploy')

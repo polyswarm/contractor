@@ -3,13 +3,22 @@ import string
 import time
 from enum import Enum
 
+import rlp
+import trezorlib.ethereum as trezoreth
 from eth_account import Account
+from eth_utils import is_checksum_address, to_checksum_address
+from ethereum.transactions import Transaction
+from trezorlib.client import TrezorClient
+from trezorlib.tools import parse_path
+from trezorlib.transport import enumerate_devices, get_transport
+from trezorlib.ui import ClickUI
 from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
 
 logger = logging.getLogger(__name__)
 
 BLOCKS_TO_WAIT = 5
+ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
 class Chain(Enum):
@@ -39,8 +48,10 @@ class Network(object):
 
         self.nonce = 0
         self.w3 = None
-        self.priv_key = None
         self.address = None
+        self.priv_key = None
+        self.trezor = None
+        self.address_n = None
 
     @classmethod
     def from_web3(cls, name, w3, priv_key, gas_limit, gas_price, timeout, contract_config, chain):
@@ -59,11 +70,35 @@ class Network(object):
         if not skip_checks:
             self.__preflight_checks()
 
+    def unlock_trezor(self, device_path, derivation_path):
+        try:
+            device = get_transport(device_path, prefix_search=False)
+        except Exception:
+            try:
+                device = get_transport(device_path, prefix_search=True)
+            except Exception:
+                logger.exception('Failed to find Trezor device on path %s', device_path)
+                return False
+
+        self.trezor = TrezorClient(transport=device, ui=ClickUI())
+
+        self.address_n = parse_path(derivation_path)
+        self.address = self.normalize_address(trezoreth.get_address(self.trezor, self.address_n).hex())
+        return True
+
     def unlock_keyfile(self, keyfile, password):
-        self.priv_key = Account.decrypt(keyfile.read(), password)
-        self.address = Account.privateKeyToAccount(self.priv_key).address
+        try:
+            self.priv_key = Account.decrypt(keyfile.read(), password)
+            self.address = Account.privateKeyToAccount(self.priv_key).address
+        except ValueError:
+            logger.exception('Incorrect password for keyfile')
+            return False
+
+        return True
 
     def __preflight_checks(self):
+        logger.info('Using address: %s', self.address)
+
         if self.network_id != int(self.w3.version.network):
             raise Exception('Connected to network with incorrect network id')
 
@@ -108,10 +143,10 @@ class Network(object):
 
         lowhexdigits = set(string.hexdigits.lower())
         if all([c in lowhexdigits for c in addr]):
-            addr = self.w3.toChecksumAddress(addr)[2:]
+            addr = to_checksum_address(addr)[2:]
 
         addr = '0x' + addr
-        if not self.w3.isChecksumAddress(addr):
+        if not is_checksum_address(addr):
             raise ValueError('Address is mixed case, but checksum is invalid')
 
         return addr
@@ -137,11 +172,39 @@ class Network(object):
 
     def sign_transaction(self, tx):
         logger.info('Signing transaction: %s', tx)
-        return self.w3.eth.account.signTransaction(tx, self.priv_key)
+        if self.trezor is not None:
+            chain_id = tx['chainId']
+            txobj = Transaction(
+                nonce=tx['nonce'],
+                gasprice=tx['gasPrice'],
+                startgas=tx['gas'],
+                to=tx['to'],
+                value=tx['value'],
+                data=bytes.fromhex(tx['data'][2:]),
+            )
+
+            v, r, s = trezoreth.sign_tx(
+                self.trezor,
+                n=self.address_n,
+                nonce=txobj.nonce,
+                gas_price=txobj.gasprice,
+                gas_limit=txobj.startgas,
+                to=txobj.to,
+                value=txobj.value,
+                data=txobj.data,
+                chain_id=chain_id,
+            )
+
+            r = int.from_bytes(r, byteorder='big')
+            s = int.from_bytes(s, byteorder='big')
+
+            return rlp.encode(txobj.copy(v=v, r=r, s=s))
+        else:
+            return self.w3.eth.account.signTransaction(tx, self.priv_key).rawTransaction
 
     def send_transaction(self, signed_tx):
         try:
-            txhash = self.w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+            txhash = self.w3.eth.sendRawTransaction(signed_tx)
         except ValueError as e:
             if str(e).find("known transaction") != -1:
                 txhash = signed_tx.hash

@@ -13,6 +13,7 @@ test:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   before_script:
+    - apt-get update && apt-get install -y libudev-dev libusb-1.0-0-dev
     - pip install tox
   script:
     - tox -e py36
