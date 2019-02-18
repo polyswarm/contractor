@@ -12,11 +12,12 @@ contract ArbiterStaking is Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
+    string public constant VERSION = "1.1.0";
+
     uint256 public constant MINIMUM_STAKE = 10000000 * 10 ** 18;
     uint256 public constant MAXIMUM_STAKE = 100000000 * 10 ** 18;
     uint8 public constant VOTE_RATIO_NUMERATOR = 9;
     uint8 public constant VOTE_RATIO_DENOMINATOR = 10;
-    string public constant VERSION = "1.0.0";
 
     // Deposits
     struct Deposit {

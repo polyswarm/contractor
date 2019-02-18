@@ -7,6 +7,7 @@ import "./OfferMultiSig.sol";
 
 /// @title Creates new Offer Channel contracts and keeps track of them
 contract OfferRegistry is Pausable, Ownable {
+    string public constant VERSION = "1.1.0";
 
     struct OfferChannel {
         address msig;
