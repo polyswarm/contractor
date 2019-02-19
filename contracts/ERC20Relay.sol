@@ -9,7 +9,7 @@ contract ERC20Relay is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for ERC20;
 
-    string public constant VERSION = "1.0.0";
+    string public constant VERSION = "1.1.0";
 
     /* Managers */
     address public verifierManager;

@@ -6,9 +6,10 @@ import "./NectarToken.sol";
 
 contract OfferMultiSig is Pausable {
     using SafeMath for uint256;
-    
+
+    string public constant VERSION = "1.1.0";
+
     string public constant NAME = "Offer MultiSig";
-    string public constant VERSION = "0.0.1";
     uint256 public constant MIN_SETTLEMENT_PERIOD = 10;
     uint256 public constant MAX_SETTLEMENT_PERIOD = 3600;
 
