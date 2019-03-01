@@ -14,6 +14,7 @@ from contractor.watch import Token, Watch
 
 import colorama
 import requests
+from IPython.terminal.interactiveshell import TerminalInteractiveShell
 
 colorama.init()
 
@@ -84,6 +85,32 @@ def solium(ctx, srcdir):
     sys.exit(rc)
 
 
+def configure_network(config, network_name, keyfile, password, trezor, trezor_path, derivation_path):
+    network = config.network_configs[network_name].create()
+
+    if trezor:
+        if not network.unlock_trezor(trezor_path, derivation_path):
+            sys.exit(1)
+    else:
+        if keyfile is None:
+            click.echo('No keyfile provided')
+            sys.exit(1)
+
+        if password is None:
+            password = click.prompt('Enter password for keyfile {}'.format(keyfile), default='', hide_input=True)
+
+        if not network.unlock_keyfile(keyfile, password):
+            sys.exit(1)
+
+    try:
+        network.connect()
+    except requests.exceptions.RequestException:
+        click.echo('Could not connect to Ethereum client, exiting')
+        sys.exit(1)
+
+    return network
+
+
 @cli.command()
 @click.option('--config', envvar='CONFIG', type=click.File('r'), required=True,
               help='Path to yaml config file defining networks and users')
@@ -114,36 +141,13 @@ def solium(ctx, srcdir):
 @click.pass_context
 def deploy(ctx, config, community, network, keyfile, password, trezor, trezor_path, derivation_path, chain, db_uri, git,
            artifactdir, output):
-
     config = Config.from_yaml(config, Chain.from_str(chain))
 
     if network not in config.network_configs:
         click.echo('No such network {0} defined, check configuration', network)
         sys.exit(1)
 
-    network = config.network_configs[network].create()
-
-    # Currently deploy is the only command which signs transactions, might need to split this off if other commands are
-    # later added which use this functionality
-    if trezor:
-        if not network.unlock_trezor(trezor_path, derivation_path):
-            sys.exit(1)
-    else:
-        if keyfile is None:
-            click.echo('No keyfile provided')
-            sys.exit(1)
-
-        if password is None:
-            password = click.prompt('Enter password for keyfile {}'.format(keyfile), default='', hide_input=True)
-
-        if not network.unlock_keyfile(keyfile, password):
-            sys.exit(1)
-
-    try:
-        network.connect()
-    except requests.exceptions.RequestException:
-        click.echo('Could not connect to Ethereum client, exiting')
-        sys.exit(1)
+    network = configure_network(config, network, keyfile, password, trezor, trezor_path, derivation_path)
 
     session = None
     if db_uri is not None:
@@ -159,6 +163,64 @@ def deploy(ctx, config, community, network, keyfile, password, trezor, trezor_pa
 
     with open(output, 'w') as f:
         deployer.dump_results(f)
+
+
+@cli.command()
+@click.option('--config', envvar='CONFIG', type=click.File('r'), required=True,
+              help='Path to yaml config file defining networks and users')
+@click.option('--community', envvar='COMMUNITY', required=True,
+              help='What community we are interacting with')
+@click.option('--network', required=True,
+              help='What network to interact with')
+@click.option('--keyfile', envvar='KEYFILE', type=click.File('r'),
+              help='Path to private key json file used to deploy')
+@click.option('--password', envvar='PASSWORD',
+              help='Password used to decrypt private key')
+@click.option('--trezor', is_flag=True,
+              help='Sign transactions with a Trezor')
+@click.option('--trezor-path', envvar='TREZOR_PATH',
+              help='Path to Trezor device')
+@click.option('--derivation-path', default='m/44\'/60\'/0\'/0/0',
+              help='Derivation path of key to use on Trezor')
+@click.option('--chain', type=click.Choice(('home', 'side')), required=True,
+              help='Is this deployment on the homechain or sidechain?')
+@click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
+              help='Directory containing the compiled artifacts to deploy')
+@click.option('-i', '--input', type=click.Path(dir_okay=False), required=False,
+              help='Input file containing the deployed addresses of our artifacts')
+@click.option('-t', '--timeout', type=int, default=60,
+              help='Time to wait for input file to exist')
+@click.pass_context
+def repl(ctx, config, community, network, keyfile, password, trezor, trezor_path, derivation_path, chain, artifactdir,
+         input, timeout):
+    config = Config.from_yaml(config, Chain.from_str(chain))
+
+    if network not in config.network_configs:
+        click.echo('No such network {0} defined, check configuration', network)
+        sys.exit(1)
+
+    network = configure_network(config, network, keyfile, password, trezor, trezor_path, derivation_path)
+    deployer = Deployer(community, network, artifactdir)
+
+    # Default to homechain.json/sidechain.json
+    if not input:
+        input = chain + 'chain.json'
+
+    click.echo('Waiting for deployment results')
+    if not wait_for_file(input, timeout):
+        click.echo('Timeout waiting for deployment results file')
+        sys.exit(1)
+
+    with open(input, 'r') as f:
+        deployer.load_results(f)
+
+    user_ns = {
+        'config': config,
+        'network': network,
+        'deployer': deployer,
+    }
+    shell = TerminalInteractiveShell(user_ns=user_ns)
+    shell.mainloop()
 
 
 @cli.command()
