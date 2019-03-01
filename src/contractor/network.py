@@ -8,6 +8,7 @@ import trezorlib.ethereum as trezoreth
 from eth_account import Account
 from eth_utils import is_checksum_address, to_checksum_address
 from ethereum.transactions import Transaction
+from hexbytes import HexBytes
 from trezorlib.client import TrezorClient
 from trezorlib.tools import parse_path
 from trezorlib.transport import enumerate_devices, get_transport
@@ -208,7 +209,7 @@ class Network(object):
         except ValueError as e:
             if str(e).find("known transaction") != -1:
                 txhash = signed_tx.hash
-                logger.warn("Got known transaction error for tx %s", txhash.hex())
+                logger.warning("Got known transaction error for tx %s", txhash.hex())
             else:
                 raise e
 
@@ -219,7 +220,7 @@ class Network(object):
         return self.w3.eth.blockNumber
 
     def wait_for_transaction(self, txhash):
-        return self.w3.eth.waitForTransactionReceipt(txhash, timeout=self.timeout)
+        return self.w3.eth.waitForTransactionReceipt(HexBytes(txhash), timeout=self.timeout)
 
     def wait_for_transactions(self, txhashes):
         # TODO: asyncio-ify operations and use asyncio.gather or similar, using blocking API for now
@@ -229,6 +230,7 @@ class Network(object):
         return ret
 
     def check_transaction(self, txhash):
+        txhash = HexBytes(txhash)
         tx = self.w3.eth.getTransaction(txhash)
         receipt = self.w3.eth.getTransactionReceipt(txhash)
 
@@ -239,6 +241,7 @@ class Network(object):
         return all([self.check_transaction(txhash) for txhash in txhashes])
 
     def wait_and_check_transaction(self, txhash):
+        txhash = HexBytes(txhash)
         receipt = self.wait_for_transaction(txhash)
         if not self.check_transaction(txhash):
             raise Exception('Transaction {0} failed, check network state'.format(txhash.hex()))
