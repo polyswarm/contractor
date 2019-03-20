@@ -150,7 +150,7 @@ def test_allow_owner_to_set_fee_manager(bounty_registry):
         BountyRegistry.functions.setFeeManager(user.address).transact({'from': user.address})
 
 
-def test_should_allow_owner_to_perform_management_if_no_manager_set(bounty_registry):
+def test_should_allow_owner_to_perform_fee_management_if_no_manager_set(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
 
     owner = BountyRegistry.owner
@@ -165,8 +165,36 @@ def test_should_allow_owner_to_perform_management_if_no_manager_set(bounty_regis
     with pytest.raises(TransactionFailed):
         BountyRegistry.functions.setAssertionFee(2).transact({'from': owner})
 
-    BountyRegistry.functions.setBountyFee(1).transact({'from': fee_manager.address})
-    BountyRegistry.functions.setAssertionFee(1).transact({'from': fee_manager.address})
+    BountyRegistry.functions.setBountyFee(3).transact({'from': fee_manager.address})
+    BountyRegistry.functions.setAssertionFee(3).transact({'from': fee_manager.address})
+
+
+def test_allow_owner_to_set_window_manager(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    owner = BountyRegistry.owner
+    user = BountyRegistry.ambassadors[0]
+    window_manager = BountyRegistry.window_manager
+
+    BountyRegistry.functions.setWindowManager(window_manager.address).transact({'from': owner})
+
+    with pytest.raises(TransactionFailed):
+        BountyRegistry.functions.setWindowManager(user.address).transact({'from': user.address})
+
+
+def test_should_allow_owner_to_perform_window_management_if_no_manager_set(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    owner = BountyRegistry.owner
+    window_manager = BountyRegistry.window_manager
+
+    BountyRegistry.functions.setArbiterVoteWindow(1).transact({'from': owner})
+
+    BountyRegistry.functions.setWindowManager(window_manager.address).transact({'from': owner})
+    with pytest.raises(TransactionFailed):
+        BountyRegistry.functions.setArbiterVoteWindow(2).transact({'from': owner})
+
+    BountyRegistry.functions.setArbiterVoteWindow(3).transact({'from': window_manager.address})
 
 
 def test_post_bounty(bounty_registry):

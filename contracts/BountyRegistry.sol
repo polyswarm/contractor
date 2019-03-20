@@ -12,7 +12,7 @@ contract BountyRegistry is Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "1.1.0";
+    string public constant VERSION = "1.2.0";
 
     struct Bounty {
         uint128 guid;
@@ -116,6 +116,7 @@ contract BountyRegistry is Pausable, Ownable {
     uint256 public bountyFee;
     uint256 public assertionFee;
     address public feeManager;
+    address public windowManager;
 
     event NewFeeManager(
         address indexed previousManager,
@@ -125,6 +126,16 @@ contract BountyRegistry is Pausable, Ownable {
     event FeesUpdated(
         uint256 bountyFee,
         uint256 assertionFee
+    );
+
+    event NewWindowManager(
+        address indexed previousManager,
+        address indexed newManager
+    );
+
+    event WindowsUpdated(
+        uint256 assertionRevealWindow,
+        uint256 arbiterVoteWindow
     );
 
     uint256 public arbiterCount;
@@ -193,6 +204,37 @@ contract BountyRegistry is Pausable, Ownable {
     function setAssertionFee(uint256 newAssertionFee) external onlyFeeManager {
         assertionFee = newAssertionFee;
         emit FeesUpdated(bountyFee, assertionFee);
+    }
+
+    /** Function only callable by fee manager */
+    modifier onlyWindowManager() {
+        if (windowManager == address(0)) {
+            require(msg.sender == owner(), "Not a window manager");
+        } else {
+            require(msg.sender == windowManager, "Not a window manager");
+        }
+        _;
+    }
+
+    /**
+     * Set account which can update windows
+     *
+     * @param newWindowManager The new fee manager
+     */
+    function setWindowManager(address newWindowManager) external onlyOwner {
+        emit NewWindowManager(windowManager, newWindowManager);
+        windowManager = newWindowManager;
+    }
+
+    /**
+     * Set arbiter voting window in blocks
+     *
+     * @param newArbiterVoteWindow The new arbiter voting window in blocks
+     */
+    function setArbiterVoteWindow(uint256 newArbiterVoteWindow) external onlyWindowManager {
+        arbiterVoteWindow = newArbiterVoteWindow;
+        // ASSERTION_REVEAL_WINDOW is a constant but emit it here for completeness
+        emit WindowsUpdated(ASSERTION_REVEAL_WINDOW, arbiterVoteWindow);
     }
 
     /**
