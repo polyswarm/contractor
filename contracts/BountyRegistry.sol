@@ -12,7 +12,7 @@ contract BountyRegistry is Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "1.1.0";
+    string public constant VERSION = "1.2.0";
 
     struct Bounty {
         uint128 guid;
