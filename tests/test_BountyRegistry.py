@@ -6,7 +6,8 @@ import pytest
 from eth_tester.exceptions import TransactionFailed
 from ethereum.utils import sha3
 
-STARTING_BALANCE = 1000000000 * 10 ** 18
+USER_STARTING_BALANCE = 3000000 * 10 ** 18
+ARBITER_STARTING_BALANCE = 50000000 * 10 ** 18
 ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
@@ -216,7 +217,7 @@ def test_post_bounty(bounty_registry):
     assert bounty[0].args['artifactURI'] == uri
     assert bounty[0].args['amount'] == amount
 
-    assert NectarToken.functions.balanceOf(ambassador.address).call() == STARTING_BALANCE - bounty_fee - amount
+    assert NectarToken.functions.balanceOf(ambassador.address).call() == USER_STARTING_BALANCE - bounty_fee - amount
     assert BountyRegistry.functions.getNumberOfBounties().call() == 1
     assert BountyRegistry.functions.bountiesByGuid(guid).call()[0] == guid
 
@@ -275,7 +276,7 @@ def test_reject_too_large_bounties(bounty_registry):
     ambassador = BountyRegistry.ambassadors[0]
 
     with pytest.raises(TransactionFailed):
-        post_bounty(bounty_registry, ambassador.address, amount=STARTING_BALANCE)
+        post_bounty(bounty_registry, ambassador.address, amount=USER_STARTING_BALANCE)
 
 
 def test_reject_zero_artifact_bounties(bounty_registry):
@@ -341,7 +342,7 @@ def test_post_assertions(bounty_registry, eth_tester):
 
     reveal_assertion(bounty_registry, expert.address, guid, index, nonce, [True], 'foo')
 
-    assert NectarToken.functions.balanceOf(expert.address).call() == STARTING_BALANCE - bid - assertion_fee
+    assert NectarToken.functions.balanceOf(expert.address).call() == USER_STARTING_BALANCE - bid - assertion_fee
     assert BountyRegistry.functions.getNumberOfAssertions(guid).call() == 1
     assert BountyRegistry.functions.assertionsByGuid(guid, 0).call()[1] == bid
 
@@ -502,11 +503,11 @@ def test_arbiter_settle_after_voting_ends(bounty_registry, eth_tester):
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE - bid - assertion_fee
+           USER_STARTING_BALANCE - bid - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE + bid + amount - assertion_fee
+           USER_STARTING_BALANCE + bid + amount - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
 
 
 def test_should_allow_voting_after_quorum_reached(bounty_registry, eth_tester):
@@ -613,11 +614,11 @@ def test_settle_multi_artifact_bounty(bounty_registry, eth_tester):
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE - bid - assertion_fee
+           USER_STARTING_BALANCE - bid - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE + amount // 2 - assertion_fee
+           USER_STARTING_BALANCE + amount // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
 
 
 def test_any_arbiter_settle_after_256_blocks(bounty_registry, eth_tester):
@@ -671,11 +672,11 @@ def test_any_arbiter_settle_after_256_blocks(bounty_registry, eth_tester):
     assert selected == winner.address
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE - bid - assertion_fee
+           USER_STARTING_BALANCE - bid - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE + amount // 2 - assertion_fee
+           USER_STARTING_BALANCE + amount // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
 
 
 def test_reach_quorum_if_all_vote_malicious_first(bounty_registry, eth_tester):
@@ -729,11 +730,11 @@ def test_reach_quorum_if_all_vote_malicious_first(bounty_registry, eth_tester):
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE + amount // 4 - bid // 2 - assertion_fee
+           USER_STARTING_BALANCE + amount // 4 - bid // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE + (3 * amount // 4) + bid // 2 - assertion_fee
+           USER_STARTING_BALANCE + (3 * amount // 4) + bid // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
 
 
 def test_reach_quorum_if_all_vote_malicious_second(bounty_registry, eth_tester):
@@ -787,11 +788,11 @@ def test_reach_quorum_if_all_vote_malicious_second(bounty_registry, eth_tester):
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE + amount // 2 - assertion_fee
+           USER_STARTING_BALANCE + amount // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE - bid - assertion_fee
+           USER_STARTING_BALANCE - bid - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
 
 
 def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
@@ -844,11 +845,11 @@ def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE - bid - assertion_fee
+           USER_STARTING_BALANCE - bid - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE + amount // 2 - assertion_fee
+           USER_STARTING_BALANCE + amount // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
 
 
 def test_only_owner_can_modify_arbiters(bounty_registry):
@@ -948,7 +949,7 @@ def test_should_refund_bounty_amount_and_fee_to_ambassador_if_no_assertions_or_v
 
     settle_bounty(bounty_registry, ambassador.address, guid)
 
-    assert NectarToken.functions.balanceOf(ambassador.address).call() == STARTING_BALANCE
+    assert NectarToken.functions.balanceOf(ambassador.address).call() == USER_STARTING_BALANCE
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -982,8 +983,8 @@ def test_should_refund_bounty_amount_to_ambassador_if_no_assertions(bounty_regis
     if selected != arbiter.address:
         settle_bounty(bounty_registry, selected, guid)
 
-    assert NectarToken.functions.balanceOf(ambassador.address).call() == STARTING_BALANCE - bounty_fee
-    assert NectarToken.functions.balanceOf(selected).call() == STARTING_BALANCE - stake_amount + bounty_fee
+    assert NectarToken.functions.balanceOf(ambassador.address).call() == USER_STARTING_BALANCE - bounty_fee
+    assert NectarToken.functions.balanceOf(selected).call() == ARBITER_STARTING_BALANCE - stake_amount + bounty_fee
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1016,7 +1017,7 @@ def test_should_refund_bounty_fee_to_ambassador_if_no_votes(bounty_registry, eth
     settle_bounty(bounty_registry, expert0.address, guid)
     settle_bounty(bounty_registry, expert1.address, guid)
 
-    assert NectarToken.functions.balanceOf(ambassador.address).call() == STARTING_BALANCE - amount
+    assert NectarToken.functions.balanceOf(ambassador.address).call() == USER_STARTING_BALANCE - amount
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1069,9 +1070,9 @@ def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_some_
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(ambassador.address).call() == \
-           STARTING_BALANCE - amount // 2 - bounty_fee
+           USER_STARTING_BALANCE - amount // 2 - bounty_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
 
 
 def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_any_artifacts(bounty_registry, eth_tester):
@@ -1123,9 +1124,9 @@ def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_any_a
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(ambassador.address).call() == \
-           STARTING_BALANCE - bounty_fee
+           USER_STARTING_BALANCE - bounty_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
     assert NectarToken.functions.balanceOf(NectarToken.address).call() == 0
 
 
@@ -1157,7 +1158,7 @@ def test_payout_fee_bid_amount_to_one_expert_if_no_votes(bounty_registry, eth_te
     settle_bounty(bounty_registry, expert.address, guid)
 
     assert NectarToken.functions.balanceOf(expert.address).call() == \
-           STARTING_BALANCE + amount
+           USER_STARTING_BALANCE + amount
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1194,9 +1195,9 @@ def test_payout_fee_bid_amount_to_two_experts_if_no_votes(bounty_registry, eth_t
     settle_bounty(bounty_registry, expert1.address, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE + amount // 2
+           USER_STARTING_BALANCE + amount // 2
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE + amount // 2
+           USER_STARTING_BALANCE + amount // 2
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1244,11 +1245,11 @@ def test_lose_bid_if_no_reveal(bounty_registry, eth_tester):
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE - bid - assertion_fee
+           USER_STARTING_BALANCE - bid - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE - bid - assertion_fee
+           USER_STARTING_BALANCE - bid - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee + 2 * bid + amount
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee + 2 * bid + amount
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1296,11 +1297,11 @@ def test_payout_bid_to_expert_if_mask_zero(bounty_registry, eth_tester):
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE - assertion_fee
+           USER_STARTING_BALANCE - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE - assertion_fee
+           USER_STARTING_BALANCE - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1348,9 +1349,9 @@ def test_payout_half_amount_lose_half_bid_when_half_right_half_wrong_one_expert(
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert.address).call() == \
-           STARTING_BALANCE - bid // 2 + amount // 2 - assertion_fee
+           USER_STARTING_BALANCE - bid // 2 + amount // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + bid // 2 + amount // 2 + assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + bid // 2 + amount // 2 + assertion_fee + bounty_fee
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1403,11 +1404,11 @@ def test_payout_half_amount_lose_half_bid_when_half_right_half_wrong_two_experts
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE - bid // 2 + amount // 4 - assertion_fee
+           USER_STARTING_BALANCE - bid // 2 + amount // 4 - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE - bid // 2 + amount // 4 - assertion_fee
+           USER_STARTING_BALANCE - bid // 2 + amount // 4 - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + amount // 2 + bid + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + amount // 2 + bid + 2 * assertion_fee + bounty_fee
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1460,11 +1461,11 @@ def test_payout_when_two_experts_have_differing_incorrect_verdicts(bounty_regist
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE + amount // 2 - assertion_fee
+           USER_STARTING_BALANCE + amount // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE + amount // 2 - assertion_fee
+           USER_STARTING_BALANCE + amount // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1519,11 +1520,11 @@ def test_should_pay_out_amount_relative_to_bid_proportion(bounty_registry, eth_t
 
     total_bid = bid0 + bid1
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
-           STARTING_BALANCE + (bid0 * amount // total_bid) - assertion_fee
+           USER_STARTING_BALANCE + (bid0 * amount // total_bid) - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           STARTING_BALANCE + (bid1 * amount // total_bid) - assertion_fee
+           USER_STARTING_BALANCE + (bid1 * amount // total_bid) - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1563,7 +1564,7 @@ def test_no_arbiter_payout_if_no_votes(bounty_registry, eth_tester):
 
     for arbiter in arbiters:
         settle_bounty(bounty_registry, arbiter.address, guid)
-        assert NectarToken.functions.balanceOf(arbiter.address).call() == STARTING_BALANCE - stake_amount
+        assert NectarToken.functions.balanceOf(arbiter.address).call() == ARBITER_STARTING_BALANCE - stake_amount
 
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
@@ -1589,7 +1590,7 @@ def test_no_arbiter_payout_if_no_assertions_and_no_votes(bounty_registry, eth_te
 
     for arbiter in arbiters:
         settle_bounty(bounty_registry, arbiter.address, guid)
-        assert NectarToken.functions.balanceOf(arbiter.address).call() == STARTING_BALANCE - stake_amount
+        assert NectarToken.functions.balanceOf(arbiter.address).call() == ARBITER_STARTING_BALANCE - stake_amount
 
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
@@ -1626,7 +1627,7 @@ def test_payout_bounty_fee_to_arbiter_if_no_votes(bounty_registry, eth_tester):
     if selected != arbiter.address:
         settle_bounty(bounty_registry, selected, guid)
 
-    assert NectarToken.functions.balanceOf(selected).call() == STARTING_BALANCE - stake_amount + bounty_fee
+    assert NectarToken.functions.balanceOf(selected).call() == ARBITER_STARTING_BALANCE - stake_amount + bounty_fee
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1678,7 +1679,7 @@ def test_payout_bounty_fee_and_assertion_fees_to_arbiter(bounty_registry, eth_te
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
 
 
 def test_payout_all_to_arbiter_if_every_expert_wrong(bounty_registry, eth_tester):
@@ -1729,7 +1730,7 @@ def test_payout_all_to_arbiter_if_every_expert_wrong(bounty_registry, eth_tester
         settle_bounty(bounty_registry, selected, guid)
 
     assert NectarToken.functions.balanceOf(selected).call() == \
-           STARTING_BALANCE - stake_amount + 2 * bid + amount + 2 * assertion_fee + bounty_fee
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * bid + amount + 2 * assertion_fee + bounty_fee
 
 
 def test_payout_so_arbiter_one_expert_profit_using_minimums(bounty_registry, eth_tester):
@@ -1774,8 +1775,8 @@ def test_payout_so_arbiter_one_expert_profit_using_minimums(bounty_registry, eth
     if selected != arbiter.address:
         settle_bounty(bounty_registry, selected, guid)
 
-    assert NectarToken.functions.balanceOf(expert.address).call() > STARTING_BALANCE
-    assert NectarToken.functions.balanceOf(selected).call() > STARTING_BALANCE - stake_amount
+    assert NectarToken.functions.balanceOf(expert.address).call() > USER_STARTING_BALANCE
+    assert NectarToken.functions.balanceOf(selected).call() > ARBITER_STARTING_BALANCE - stake_amount
 
 
 def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth_tester):
@@ -1825,6 +1826,6 @@ def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth
     if selected != arbiter.address:
         settle_bounty(bounty_registry, selected, guid)
 
-    assert NectarToken.functions.balanceOf(expert0.address).call() > STARTING_BALANCE
-    assert NectarToken.functions.balanceOf(expert1.address).call() < STARTING_BALANCE
-    assert NectarToken.functions.balanceOf(selected).call() > STARTING_BALANCE - stake_amount
+    assert NectarToken.functions.balanceOf(expert0.address).call() > USER_STARTING_BALANCE
+    assert NectarToken.functions.balanceOf(expert1.address).call() < USER_STARTING_BALANCE
+    assert NectarToken.functions.balanceOf(selected).call() > ARBITER_STARTING_BALANCE - stake_amount
