@@ -10,12 +10,26 @@ CONTRACT_NAME = 'NectarToken'
 MINT_STRIDE = 10
 
 
+def mint_for_users(network, deployer, users, mint_amount):
+    # Take mint requests MINT_STRIDE users at a time
+    for i, group in enumerate(zip_longest(*(iter(users),) * MINT_STRIDE)):
+        group = filter(None, group)
+        txhashes = []
+        for j, user in enumerate(group):
+            logger.info('Minting %s tokens for user %s: %s', mint_amount, i * MINT_STRIDE + j, user)
+            txhashes.append(deployer.transact(deployer.contracts['NectarToken'].functions.mint(user, mint_amount)))
+
+        network.wait_and_check_transactions(txhashes)
+
+
 class NectarToken(Step):
     def run(self, network, deployer):
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
-        users = [network.normalize_address(a) for a in contract_config.get('users', [])]
         mint = contract_config.get('mint', True)
-        mint_amount = contract_config.get('mint_amount', 1000000000 * 10 ** 18)
+        users = [network.normalize_address(a) for a in contract_config.get('users', [])]
+        user_mint_amount = contract_config.get('mint_amount', 3000000 * 10 ** 18)
+        arbiters = [network.normalize_address(a) for a in contract_config.get('arbiters', [])]
+        arbiter_mint_amount = contract_config.get('mint_amount', 50000000 * 10 ** 18)
 
         address = None
         if network.chain == Chain.HOMECHAIN:
@@ -33,13 +47,5 @@ class NectarToken(Step):
             network.wait_and_check_transaction(txhash)
 
         if mint and network.chain == Chain.HOMECHAIN:
-            # Take mint requests MINT_STRIDE users at a time
-            for i, group in enumerate(zip_longest(*(iter(users),) * MINT_STRIDE)):
-                group = filter(None, group)
-                txhashes = []
-                for j, user in enumerate(group):
-                    logger.info('Minting tokens for user %s: %s', i * MINT_STRIDE + j, user)
-                    txhashes.append(
-                        deployer.transact(deployer.contracts['NectarToken'].functions.mint(user, mint_amount)))
-
-                network.wait_and_check_transactions(txhashes)
+            mint_for_users(network, deployer, users, user_mint_amount)
+            mint_for_users(network, deployer, arbiters, arbiter_mint_amount)
