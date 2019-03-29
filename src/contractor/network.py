@@ -62,7 +62,7 @@ class Network(object):
         ret = cls(name, None, None, gas_limit, gas_price, gas_estimate_multiplier, timeout, contract_config, chain)
         ret.w3 = w3
         ret.priv_key = priv_key
-        ret.address = w3.eth.account.privateKeyToAccount(priv_key).addres
+        ret.address = w3.eth.account.privateKeyToAccount(priv_key).address
         return ret
 
     def connect(self, skip_checks=False):

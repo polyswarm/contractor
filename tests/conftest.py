@@ -16,6 +16,7 @@ from contractor.deployer import Deployer
 from contractor.network import Chain, Network
 
 GAS_LIMIT = 7500000
+GAS_MULTIPLIER = 3
 
 
 class TestAccount(object):
@@ -160,7 +161,7 @@ def web3(eth_tester):
 def deploy(config, chain, artifacts, eth_tester, web3):
     owner = TestAccount(eth_tester)
     name = 'homechain' if chain == Chain.HOMECHAIN else 'sidechain'
-    network = Network.from_web3(name, web3, owner.priv_key, GAS_LIMIT, 0, 10, config, chain)
+    network = Network.from_web3(name, web3, owner.priv_key, GAS_LIMIT, 0, GAS_MULTIPLIER, 10, config, chain)
     deployer = Deployer('test', network, artifacts)
     steps.run(network, deployer, to_deploy=config.keys())
 
