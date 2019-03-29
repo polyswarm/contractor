@@ -7,12 +7,14 @@ logger = logging.getLogger(__name__)
 
 
 class NetworkConfig(object):
-    def __init__(self, name, eth_uri, network_id, gas_limit, gas_price, timeout, contract_config, chain):
+    def __init__(self, name, eth_uri, network_id, gas_limit, gas_price, gas_estimate_multiplier, timeout,
+                 contract_config, chain):
         self.name = name
         self.eth_uri = eth_uri
         self.network_id = network_id
         self.gas_limit = gas_limit
         self.gas_price = gas_price
+        self.gas_estimate_multiplier = gas_estimate_multiplier
         self.timeout = timeout
         self.contract_config = contract_config
         self.chain = chain
@@ -25,13 +27,15 @@ class NetworkConfig(object):
         network_id = d.get('network_id')
         gas_limit = d.get('gas_limit')
         gas_price = d.get('gas_price')
+        gas_estimate_multiplier = d.get('gas_estimate_multiplier', 3)
         timeout = d.get('timeout', 240)
 
         # Copy default contract config and apply any overrides if applicable
         contract_config = dict(default_contract_config)
         contract_config.update(d.get('contracts', {}))
 
-        return cls(name, eth_uri, network_id, gas_limit, gas_price, timeout, contract_config, chain)
+        return cls(name, eth_uri, network_id, gas_limit, gas_price, gas_estimate_multiplier, timeout, contract_config,
+                   chain)
 
     def validate(self):
         # TODO: What else needs to/can be validated?
@@ -41,8 +45,8 @@ class NetworkConfig(object):
             raise ValueError('Invalid timeout')
 
     def create(self):
-        return Network(self.name, self.eth_uri, self.network_id, self.gas_limit, self.gas_price, self.timeout,
-                       self.contract_config, self.chain)
+        return Network(self.name, self.eth_uri, self.network_id, self.gas_limit, self.gas_estimate_multiplier,
+                       self.gas_price, self.timeout, self.contract_config, self.chain)
 
 
 class Config(object):
