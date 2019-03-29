@@ -37,12 +37,14 @@ class Chain(Enum):
 
 
 class Network(object):
-    def __init__(self, name, eth_uri, network_id, gas_limit, gas_price, timeout, contract_config, chain):
+    def __init__(self, name, eth_uri, network_id, gas_limit, gas_price, gas_estimate_multiplier, timeout,
+                 contract_config, chain):
         self.name = name
         self.eth_uri = eth_uri
         self.network_id = network_id
         self.gas_limit = gas_limit
         self.gas_price = gas_price
+        self.gas_estimate_multiplier = gas_estimate_multiplier
         self.timeout = timeout
         self.contract_config = contract_config
         self.chain = chain
@@ -55,8 +57,9 @@ class Network(object):
         self.address_n = None
 
     @classmethod
-    def from_web3(cls, name, w3, priv_key, gas_limit, gas_price, timeout, contract_config, chain):
-        ret = cls(name, None, None, gas_limit, gas_price, timeout, contract_config, chain)
+    def from_web3(cls, name, w3, priv_key, gas_limit, gas_price, gas_estimate_multiplier, timeout, contract_config,
+                  chain):
+        ret = cls(name, None, None, gas_limit, gas_price, gas_estimate_multiplier, timeout, contract_config, chain)
         ret.w3 = w3
         ret.priv_key = priv_key
         ret.address = w3.eth.account.privateKeyToAccount(priv_key).address

@@ -9,8 +9,6 @@ from hexbytes import HexBytes
 
 logger = logging.getLogger(__name__)
 
-GAS_MULTIPLIER = 3
-
 
 # For polyswarmd compatibility
 # https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
@@ -141,7 +139,8 @@ class Deployer(object):
 
         # Use our estimate but don't exceed gas limit defined in config
         try:
-            gas = int(call.estimateGas({'from': self.__network.address, **opts}) * GAS_MULTIPLIER)
+            gas = int(
+                call.estimateGas({'from': self.__network.address, **opts}) * self.__network.gas_estimate_multiplier)
             opts['gas'] = min(opts['gas'], gas)
         except ValueError as e:
             logger.warning('Error estimating gas, bravely trying anyway: %s', e)
