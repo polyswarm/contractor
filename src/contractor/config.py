@@ -45,8 +45,8 @@ class NetworkConfig(object):
             raise ValueError('Invalid timeout')
 
     def create(self):
-        return Network(self.name, self.eth_uri, self.network_id, self.gas_limit, self.gas_estimate_multiplier,
-                       self.gas_price, self.timeout, self.contract_config, self.chain)
+        return Network(self.name, self.eth_uri, self.network_id, self.gas_limit, self.gas_price,
+                       self.gas_estimate_multiplier, self.timeout, self.contract_config, self.chain)
 
 
 class Config(object):
