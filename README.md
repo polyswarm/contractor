@@ -46,4 +46,6 @@ Currently supported analyses:
 
 ## Tests
 
-Plan is to port truffle tests over to `ethereum.tester`, currently TODO
+Tests have been ported from old truffle test suite into unit tests in the `tests` directory, using `ethereum.tester`.
+
+Coverage reporting is a TODO.
