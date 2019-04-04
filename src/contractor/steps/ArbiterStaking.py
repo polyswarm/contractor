@@ -8,9 +8,19 @@ CONTRACT_NAME = 'ArbiterStaking'
 
 
 class ArbiterStaking(Step):
+    """Deployment steps for the ArbiterStaking contract.
+    """
+
     DEPENDENCIES = {'NectarToken'}
+    """ArbiterStaking depends on NectarToken"""
 
     def run(self, network, deployer):
+        """Run the deployment.
+
+        :param network: Network being deployed to
+        :param deployer: Deployer for deploying and transacting with contracts
+        :return: None
+        """
         nectar_token_address = deployer.contracts['NectarToken'].address
 
         contract_config = network.contract_config.get(CONTRACT_NAME, {})

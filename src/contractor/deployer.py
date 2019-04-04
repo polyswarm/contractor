@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 # For polyswarmd compatibility
 # https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
 def camel_case_to_snake_case(s):
+    """Convert camel case names to snake case, for polyswarmd compatibility.
+
+    :param s: String to convert
+    :return: Converted string
+    """
     s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', s)
     return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
@@ -20,6 +25,13 @@ def camel_case_to_snake_case(s):
 # https://stackoverflow.com/questions/19053707/converting-snake-case-to-lower-camel-case-lowercamelcase
 # Unfortunate special case for ERC20Relay
 def snake_case_to_camel_case(s):
+    """Convert snake case names to camel case, for polyswarmd compatibility.
+
+    Unfortunate special case for ERC20Relay contract.
+
+    :param s: String to convert
+    :return: Converted string
+    """
     acronyms = {'ERC'}
     ret = ''.join(c.title() for c in s.split('_'))
     for a in acronyms:
@@ -28,7 +40,18 @@ def snake_case_to_camel_case(s):
 
 
 class Deployer(object):
+    """Class for recording contract deployments and interacting with deployed contracts.
+    """
+
     def __init__(self, community, network, artifactsdir, record_git_status=False, session=None):
+        """Create a new Deployer.
+
+        :param community: Community this deployment is for
+        :param network: Network being deployed to
+        :param artifactsdir: Directory containing compiled contracts to deploy
+        :param record_git_status: Should we record the Git status of the source tree in our deployment
+        :param session: Session to interact with a database to record deployments to
+        """
         self.__community = community
         self.__network = network
         self.__session = session
@@ -40,6 +63,11 @@ class Deployer(object):
         self.__record_deployment(record_git_status, artifactsdir)
 
     def __scan_artifacts(self, artifact_dir):
+        """Find all valid contract JSON artifacts in a directory.
+
+        :param artifact_dir: Directory to scan
+        :return: None
+        """
         self.artifacts = {}
         for filename in os.listdir(artifact_dir):
             with open(os.path.join(artifact_dir, filename), 'r') as f:
@@ -53,6 +81,12 @@ class Deployer(object):
             self.artifacts[name] = j
 
     def __record_deployment(self, record_git_status, artifactsdir):
+        """Record this deployment in a database
+
+        :param record_git_status: Should we record the Git status of the source tree in our deployment
+        :param artifactsdir: Directory containing compiled contracts that were deployed
+        :return: None
+        """
         if self.__session is not None:
             commit_hash = tree_dirty = None
             if record_git_status:
@@ -71,6 +105,12 @@ class Deployer(object):
             self.__session.commit()
 
     def __record_contract(self, name, deployed):
+        """Record a contract's deployment status in the database.
+
+        :param name: Name of the contract
+        :param deployed: Was the contract deployed
+        :return: None
+        """
         if self.__session is not None and self.deployment is not None:
             contract_obj = self.contracts[name]
             logger.info('Recording contract %s:%s in database', name, contract_obj.address)
@@ -81,6 +121,10 @@ class Deployer(object):
             self.__session.commit()
 
     def __mark_deployment_success(self):
+        """Mark a deployment as having succeeded
+
+        :return: None
+        """
         if self.__session is not None and self.deployment is not None:
             # Mark any nondeployed contracts as built but not deployed
             nondeployed = {name for name in self.artifacts if name not in self.contracts}
@@ -97,6 +141,13 @@ class Deployer(object):
             self.__session.commit()
 
     def at(self, name, address, deployed=False):
+        """Configure a contract as already having been deployed at a given address.
+
+        :param name: Name of the contract
+        :param address: Address the contract was previously deployed to
+        :param deployed: Should we record this contract as having been deployed
+        :return: Contract object for interacting with this contract
+        """
         artifact = self.artifacts.get(name)
         if artifact is None:
             raise ValueError('No artifact {} in artifacts, have you compiled?'.format(name))
@@ -109,6 +160,13 @@ class Deployer(object):
         return contract
 
     def deploy(self, name, *args, **kwargs):
+        """Deploy a contract
+
+        :param name: Name of the contract to deploy
+        :param args: Arguments to the contract's constructor
+        :param kwargs: Keyword arguments to the contract's constructor
+        :return: Contract object for interacting with this contract
+        """
         # TODO: Handle linking contracts, py-solc supports this but we don't use libs in our contracts
         if name in self.contracts:
             logger.warning('%s has already been deployed, re-deploying as requested', name)
@@ -133,7 +191,16 @@ class Deployer(object):
 
         return self.at(name, address, deployed=True)
 
-    def transact(self, call, txopts={}):
+    def transact(self, call, txopts=None):
+        """Perform a transaction with a contract
+
+        :param call: The function to call in this transaction
+        :param txopts: Options for this transaction
+        :return: Transaction hash of the transmitted transaction
+        """
+        if txopts is None:
+            txopts = {}
+
         opts = dict(self.__network.txopts())
         opts.update(txopts)
 
@@ -151,6 +218,11 @@ class Deployer(object):
         return self.__network.send_transaction(signed_tx)
 
     def dump_results(self, f):
+        """Dump deployment results to a JSON file
+
+        :param f: File object to write to
+        :return: None
+        """
         self.__mark_deployment_success()
 
         results = {camel_case_to_snake_case(name) + '_address': contract.address
@@ -166,6 +238,11 @@ class Deployer(object):
         json.dump(results, f)
 
     def load_results(self, f):
+        """Load deployment results from a JSON file.
+
+        :param f: File object to read JSON from
+        :return: None
+        """
         logger.info('Loading deployment results from json')
 
         deployment_results = json.load(f)

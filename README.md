@@ -7,7 +7,16 @@ Deploy contracts without truffle
 
 Clone with `--recursive` or run `git submodule update --init --recursive` to fetch all submodules
 
+## Docker
+
 Build docker image with `docker build -t polyswarm/contractor -f docker/Dockerfile .` from repository root
+
+Docker image contains a `deploy.sh` script which will orchestrate a deployment across a homechain and a sidechain, and push results to consul.
+
+If configuration already exists in Consul and no bytecode changes, deploy will be a no-op.
+If bytecode changes are detected, all deployment steps will be re-run with the newly compiled contracts.
+
+To force a redeploy, remove the `chain/<COMMUNITY>` key in consul and re-run.
 
 ## Compiling
 
@@ -19,7 +28,7 @@ Deploy contracts with `contractor deploy`, must provide a config file, private k
 
 ## Consul
 
-Ouput from compile and deploy steps can be pushed to consul with `contractor consul push`.
+Output from compile and deploy steps can be pushed to consul with `contractor consul push`.
 Can also pull configs to take advantange of bytecode detection
 
 ## Persistent deployment records
@@ -46,4 +55,6 @@ Currently supported analyses:
 
 ## Tests
 
-Plan is to port truffle tests over to `ethereum.tester`, currently TODO
+Tests have been ported from old truffle test suite into unit tests in the `tests` directory, using `ethereum.tester`.
+
+Coverage reporting is a TODO.

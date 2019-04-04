@@ -10,6 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 def __compiler_input_from_directory(src_dir, ext_dir=None):
+    """Generate input JSON for solc given directories of contracts to compile.
+
+    :param src_dir: Directory containing contract Solidity source
+    :param ext_dir: Directory containing external dependencies
+    :return: Dictionary containing solc input
+    """
     sources = {}
     for root, dirs, files in os.walk(src_dir):
         for file in files:
@@ -53,6 +59,13 @@ def __compiler_input_from_directory(src_dir, ext_dir=None):
 
 
 def __write_compiler_output(output, source_files, out_dir):
+    """Write output JSON from solc to a directory.
+
+    :param output: Output from solc
+    :param source_files: Source files compiled to generate provided output
+    :param out_dir: Directory to write output JSON to
+    :return: True if contracts have changed, else False
+    """
     is_dirty = False
 
     if not os.path.isdir(out_dir):
@@ -84,6 +97,11 @@ def __write_compiler_output(output, source_files, out_dir):
 
 
 def configure_compiler(solc_version):
+    """Set up a specific solc version.
+
+    :param solc_version: Version of solc to configure
+    :return: Path to the solc executable
+    """
     # py-solc lets us select a version of the compiler to use, which is nice,
     # but requires some massaging to actually use it
     solc_path = os.path.expanduser('~/.py-solc/solc-{0}/bin/solc'.format(solc_version))
@@ -94,6 +112,14 @@ def configure_compiler(solc_version):
 
 
 def compile_directory(solc_version, src_dir, out_dir, ext_dir=None):
+    """Compile a directory of contracts into output JSON.
+
+    :param solc_version: Version of solc to use
+    :param src_dir: Directory containing contract Solidity source
+    :param out_dir: Directory to output compiled JSON into
+    :param ext_dir: Directory containing external dependencies
+    :return: True if contracts have changed, else False
+    """
     configure_compiler(solc_version)
 
     kwargs = {}

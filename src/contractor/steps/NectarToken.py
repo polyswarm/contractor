@@ -11,6 +11,14 @@ MINT_STRIDE = 10
 
 
 def mint_for_users(network, deployer, users, mint_amount):
+    """Mint tokens for a set of users.
+
+    :param network: Network being deployed to
+    :param deployer: Deployer for deploying and transacting with contracts
+    :param users: Users to mint tokens for
+    :param mint_amount: Amount of tokens to mint
+    :return: None
+    """
     # Take mint requests MINT_STRIDE users at a time
     for i, group in enumerate(zip_longest(*(iter(users),) * MINT_STRIDE)):
         group = filter(None, group)
@@ -23,7 +31,16 @@ def mint_for_users(network, deployer, users, mint_amount):
 
 
 class NectarToken(Step):
+    """Deployment steps for the NectarToken contract.
+    """
+
     def run(self, network, deployer):
+        """Run the deployment.
+
+        :param network: Network being deployed to
+        :param deployer: Deployer for deploying and transacting with contracts
+        :return: None
+        """
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         mint = contract_config.get('mint', True)
         users = [network.normalize_address(a) for a in contract_config.get('users', [])]
