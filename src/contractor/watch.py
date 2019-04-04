@@ -10,11 +10,19 @@ pp = pprint.PrettyPrinter(indent=2)
 
 
 class Token(Enum):
+    """Types of cryptocurrency we interact with.
+    """
+
     ETHER = 1
     NECTAR = 2
 
     @staticmethod
     def from_str(s):
+        """Construct a Token from it's string representation.
+
+        :param s: String representation of a token
+        :return: Token based on provided string
+        """
         if s.lower() == 'ether' or s.lower() == 'eth':
             return Token.ETHER
         elif s.lower() == 'nectar' or s.lower() == 'nct':
@@ -24,10 +32,22 @@ class Token(Enum):
 
 
 def colorize(s, color):
+    """Format a string using a color
+
+    :param s: String to colorize
+    :param color: Color to set
+    :return: Formatted string
+    """
     return color + str(s) + Style.RESET_ALL
 
 
 def get_address_labels(network, deployer):
+    """Construct friendly labels for known addresses.
+
+    :param network: Network to interact with
+    :param deployer: Deployer for interacting with contracts
+    :return: Dictionary of addresses to friendly labels
+    """
     address_to_label = {}
 
     nectar_token_config = network.contract_config.get('NectarToken', {})
@@ -61,7 +81,15 @@ def get_address_labels(network, deployer):
 
 
 class User(object):
+    """Tracks balances and function calls for an address (representing a user's activity).
+    """
+
     def __init__(self, address, name=None):
+        """Construct a new User
+
+        :param address: Address to track
+        :param name: Friendly name for this user, if available
+        """
         self.address = address
         self.name = name if name is not None else address
         self.function_calls = {}
@@ -69,9 +97,21 @@ class User(object):
         self.nct_balance = 0
 
     def record_function_call(self, fn_name):
+        """Record a function call for this user.
+
+        :param fn_name: Name of the function being called
+        :return: None
+        """
         self.function_calls[fn_name] = self.function_calls.get(fn_name, 0) + 1
 
     def update_balances(self, network, deployer, block_identifier='latest'):
+        """Update balances for a user
+
+        :param network: Network to interact with
+        :param deployer: Deployer for interacting with contracts
+        :param block_identifier: Block to update for
+        :return: None
+        """
         address = network.normalize_address(self.address)
         self.eth_balance = network.w3.eth.getBalance(address, block_identifier=block_identifier)
         self.nct_balance = deployer.contracts['NectarToken'].functions.balanceOf(address).call(
@@ -79,9 +119,17 @@ class User(object):
 
 
 class Watch(object):
-    """Watch transactions and user account balance in nectar or ether"""
+    """Watch transactions and user account balance in Nectar or Ether.
+    """
 
     def __init__(self, config, token, cumulative=True, verbosity=1):
+        """Construct a Watch object for monitoring activity in the network.
+
+        :param config: Configuration to use
+        :param token: Token to track (Nectar or Ether)
+        :param cumulative: Track balances cumulatively or per block
+        :param verbosity: How verbose should we log events
+        """
         self.config = config
         self.token = token
         self.cumulative = cumulative
@@ -89,6 +137,12 @@ class Watch(object):
         self.poll_interval = 1
 
     def tabulate_balances(self, prev_user_data, cur_user_data):
+        """Construct a table of updated balances per block.
+
+        :param prev_user_data: Previous data for all users
+        :param cur_user_data: Current data for all users
+        :return: String containing tabulated balances
+        """
         balance_column_label = 'Balance ({})'.format(self.token)
         change_column_label = 'Change {}'.format('(cumulative)' if self.cumulative else '')
         fn_calls_column_label = 'Function Calls {}'.format('(cumulative)' if self.cumulative else '')
@@ -112,6 +166,12 @@ class Watch(object):
         return tabulate(tabulate_list, headers=headers)
 
     def watch(self, network, deployer):
+        """Start watching events on a network (blocking).
+
+        :param network: Network to interact with
+        :param deployer: Deployer for interacting with contracts
+        :return: None
+        """
         address_to_label = get_address_labels(network, deployer)
         contract_map = {contract.address: contract for contract in deployer.contracts.values()}
 

@@ -8,9 +8,19 @@ CONTRACT_NAME = 'BountyRegistry'
 
 
 class BountyRegistry(Step):
+    """Deployment steps for the BountyRegistry contract.
+    """
+
     DEPENDENCIES = {'NectarToken', 'ArbiterStaking'}
+    """BountyRegistry depends on NectarToken and ArbiterStaking"""
 
     def run(self, network, deployer):
+        """Run the deployment.
+
+        :param network: Network being deployed to
+        :param deployer: Deployer for deploying and transacting with contracts
+        :return: None
+        """
         nectar_token_address = deployer.contracts['NectarToken'].address
         arbiter_staking_address = deployer.contracts['ArbiterStaking'].address
 

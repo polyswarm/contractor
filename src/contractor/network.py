@@ -23,11 +23,19 @@ ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
 class Chain(Enum):
+    """Different chains we are configured to deploy to.
+    """
+
     HOMECHAIN = 1
     SIDECHAIN = 2
 
     @staticmethod
     def from_str(s):
+        """Construct a Chain from it's string representation.
+
+        :param s: String representation of a chain
+        :return: Chain based on provided string
+        """
         if s.lower() == 'home':
             return Chain.HOMECHAIN
         elif s.lower() == 'side':
@@ -37,8 +45,23 @@ class Chain(Enum):
 
 
 class Network(object):
+    """Class for interacting with an Ethereum network.
+    """
+
     def __init__(self, name, eth_uri, network_id, gas_limit, gas_price, gas_estimate_multiplier, timeout,
                  contract_config, chain):
+        """Create a new network.
+
+        :param name: Name of the network
+        :param eth_uri: URI of HTTP RPC endpoint to access network from
+        :param network_id: Network ID of the network
+        :param gas_limit: Upper bound for gas limit on this network
+        :param gas_price: Gas price to use for this network
+        :param gas_estimate_multiplier: Amount to scale gas estimates by for this network
+        :param timeout: Timeout for RPC calls on this network
+        :param contract_config: Configuration for contracts on this network
+        :param chain: Is this network the homechain or sidechain for this deployment
+        """
         self.name = name
         self.eth_uri = eth_uri
         self.network_id = network_id
@@ -59,6 +82,19 @@ class Network(object):
     @classmethod
     def from_web3(cls, name, w3, priv_key, gas_limit, gas_price, gas_estimate_multiplier, timeout, contract_config,
                   chain):
+        """Construct a network based on an already-configured Web3 instance.
+
+        :param name: Name of the network
+        :param w3: Web3 instance for interacting with this network
+        :param priv_key: Private key used to interact with this network
+        :param gas_limit: Upper bound for gas limit on this network
+        :param gas_price: Gas price to use for this network
+        :param gas_estimate_multiplier: Amount to scale gas estimates by for this network
+        :param timeout: Timeout for RPC calls on this network
+        :param contract_config: Configuration for contracts on this network
+        :param chain: Is this network the homechain or sidechain for this deployment
+        :return: New network based on provided Web3 instance
+        """
         ret = cls(name, None, None, gas_limit, gas_price, gas_estimate_multiplier, timeout, contract_config, chain)
         ret.w3 = w3
         ret.priv_key = priv_key
@@ -66,6 +102,11 @@ class Network(object):
         return ret
 
     def connect(self, skip_checks=False):
+        """Connect to the network.
+
+        :param skip_checks: Skip sanity checks to ensure network is reachable and healthy
+        :return: None
+        """
         self.w3 = Web3(HTTPProvider(self.eth_uri))
         self.w3.middleware_stack.inject(geth_poa_middleware, layer=0)
 
@@ -75,6 +116,12 @@ class Network(object):
             self.__preflight_checks()
 
     def unlock_trezor(self, device_path, derivation_path):
+        """Unlock a Trezor for signing transactions to this network.
+
+        :param device_path: Device path of the Trezor
+        :param derivation_path: Derivation path of the key to use
+        :return: True if success, else False
+        """
         try:
             device = get_transport(device_path, prefix_search=False)
         except Exception:
@@ -91,6 +138,12 @@ class Network(object):
         return True
 
     def unlock_keyfile(self, keyfile, password):
+        """Unlock a JSON keyfile for signing transactions to this network.
+
+        :param keyfile: Keyfile to unlock
+        :param password: Password to decrypt keyfile
+        :return: True if success, else False
+        """
         try:
             self.priv_key = Account.decrypt(keyfile.read(), password)
             self.address = Account.privateKeyToAccount(self.priv_key).address
@@ -101,6 +154,10 @@ class Network(object):
         return True
 
     def __preflight_checks(self):
+        """Perform some sanity checks and retrieve account's current nonce after connecting to a network.
+
+        :return: None
+        """
         logger.info('Using address: %s', self.address)
 
         if self.network_id != int(self.w3.version.network):
@@ -120,6 +177,10 @@ class Network(object):
         self.nonce = self.__get_nonce()
 
     def __get_nonce(self):
+        """Retrieve account's current nonce.
+
+        :return: Current nonce for account
+        """
         if self.address is None:
             logger.warning('No account set, cannot fetch nonce')
             return
@@ -139,6 +200,11 @@ class Network(object):
         return nonce
 
     def normalize_address(self, addr):
+        """Normalize an Ethereum address into a canonical form
+
+        :param addr: Address to normalize
+        :return: Normalized address
+        """
         if addr is None:
             return None
 
@@ -156,9 +222,19 @@ class Network(object):
         return addr
 
     def is_contract(self, addr):
+        """Determine if an address is a contract or not.
+
+        :param addr: Address to check
+        :return: True if address is a contract, else False
+        """
         return self.w3.eth.getCode(addr) != '0x'
 
     def txopts(self, increment_nonce=True):
+        """Default transaction options for this network.
+
+        :param increment_nonce: Should we increment our nonce after fetching our options
+        :return: Default transaction options for this network
+        """
         logger.info('Preparing tx with nonce %s', self.nonce)
         ret = {
             # XXX: Difference between these is subtle but irrelevant for our purposes
@@ -175,6 +251,11 @@ class Network(object):
         return ret
 
     def sign_transaction(self, tx):
+        """Sign a provided transaction, either with our private key or a Trezor hardware wallet.
+
+        :param tx: Transaction to sign
+        :return: Signed transaction
+        """
         logger.info('Signing transaction: %s', tx)
         if self.trezor is not None:
             chain_id = tx['chainId']
@@ -207,6 +288,11 @@ class Network(object):
             return self.w3.eth.account.signTransaction(tx, self.priv_key).rawTransaction
 
     def send_transaction(self, signed_tx):
+        """Transmit a signed transaction to the network.
+
+        :param signed_tx: Transaction to send
+        :return: Transaction hash of the transmitted transaction
+        """
         try:
             txhash = self.w3.eth.sendRawTransaction(signed_tx)
         except ValueError as e:
@@ -220,12 +306,26 @@ class Network(object):
         return txhash
 
     def block_number(self):
+        """Get current block number on this network.
+
+        :return: Current block number on this network
+        """
         return self.w3.eth.blockNumber
 
     def wait_for_transaction(self, txhash):
+        """Wait for a transaction to be mined (blocking).
+
+        :param txhash: Transaction hash to wait on
+        :return: Transaction receipt for the provided transaction hash
+        """
         return self.w3.eth.waitForTransactionReceipt(HexBytes(txhash), timeout=self.timeout)
 
     def wait_for_transactions(self, txhashes):
+        """Wait for multiple transactions to be mined (blocking).
+
+        :param txhashes: Transaction hashes to wait on
+        :return: Transaction receipts for the provided transaction hashes
+        """
         # TODO: asyncio-ify operations and use asyncio.gather or similar, using blocking API for now
         ret = []
         for txhash in txhashes:
@@ -233,6 +333,11 @@ class Network(object):
         return ret
 
     def check_transaction(self, txhash):
+        """Check that a transaction succeeded.
+
+        :param txhash: Transaction hash to check
+        :return: True if transaction succeeded, else False
+        """
         txhash = HexBytes(txhash)
         tx = self.w3.eth.getTransaction(txhash)
         receipt = self.w3.eth.getTransactionReceipt(txhash)
@@ -241,9 +346,19 @@ class Network(object):
         return receipt is not None and receipt['gasUsed'] < tx['gas'] and receipt['status'] == 1
 
     def check_transactions(self, txhashes):
+        """Check that multiple transactions succeeded.
+
+        :param txhashes: Transaction hashes to check
+        :return: True if all transactions succeeded, else False
+        """
         return all([self.check_transaction(txhash) for txhash in txhashes])
 
     def wait_and_check_transaction(self, txhash):
+        """Wait for a transaction to be mined, then check if it succeeded (blocking).
+
+        :param txhash: Transaction hash to wait on and check
+        :return: Receipt if transaction succeeded
+        """
         txhash = HexBytes(txhash)
         receipt = self.wait_for_transaction(txhash)
         if not self.check_transaction(txhash):
@@ -251,11 +366,22 @@ class Network(object):
         return receipt
 
     def wait_and_check_transactions(self, txhashes):
+        """Wait for multiple transaction to be mined, then check if they succeeded (blocking).
+
+        :param txhashes: Transaction hashes to wait on and check
+        :return: Receipts if transaction succeeded
+        """
         receipts = self.wait_for_transactions(txhashes)
         if not self.check_transactions(txhashes):
             raise Exception('Transaction failed, check network state')
         return receipts
 
     def wait_and_process_receipt(self, txhash, event):
+        """Wait for a transaction to be mined, and then process the receipt for events (blocking).
+
+        :param txhash: Transaction hash to wait on
+        :param event: Event to check for
+        :return: Events fired by transaction
+        """
         receipt = self.wait_and_check_transaction(txhash)
         return event.processReceipt(receipt)

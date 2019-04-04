@@ -13,9 +13,19 @@ NCT_ETH_EXCHANGE_RATE = 80972
 
 
 class ERC20Relay(Step):
+    """Deployment steps for the ERC20Relay contract.
+    """
+
     DEPENDENCIES = {'NectarToken'}
+    """ERC20Relay depends on NectarToken"""
 
     def run(self, network, deployer):
+        """Run the deployment.
+
+        :param network: Network being deployed to
+        :param deployer: Deployer for deploying and transacting with contracts
+        :return: None
+        """
         nectar_token_address = deployer.contracts['NectarToken'].address
 
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
@@ -56,6 +66,11 @@ class ERC20Relay(Step):
             network.wait_and_check_transaction(txhash)
 
     def validate(self, network):
+        """Ensures prerequisites for step and configuration are correct before proceeding.
+
+        :param network: Network being deployed to
+        :return: True if valid, else False
+        """
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         fee_wallet = contract_config.get('fee_wallet')
         verifiers = contract_config.get('verifiers')

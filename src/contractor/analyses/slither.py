@@ -6,9 +6,19 @@ from contractor.compiler import configure_compiler
 from contractor.util import call_with_output
 
 
-def slither_analyze_directory(solc_version, src_dir, ext_dir=None, excludes=[]):
-    solc_path = configure_compiler(solc_version)
+def slither_analyze_directory(solc_version, src_dir, ext_dir=None, excludes=None):
+    """Analyze contract source code using `Slither <https://github.com/crytic/slither>`_.
 
+    :param solc_version: Version of Solidity compiler to use
+    :param src_dir: Directory containing contract Solidity source
+    :param ext_dir: Directory containing external dependencies
+    :param excludes: Exclude these categories of reports
+    :return: 0 on success non-zero on failure
+    """
+    if excludes is None:
+        excludes = []
+
+    solc_path = configure_compiler(solc_version)
     cmd = ['slither', '--solc', solc_path]
     for exclude in excludes:
         if exclude in ('informational', 'low', 'medium', 'high'):
