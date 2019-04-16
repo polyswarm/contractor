@@ -32,7 +32,7 @@ def cli(ctx):
 @click.pass_context
 def install_solc(ctx, solc_version):
     solc_path = configure_compiler(solc_version)
-    click.echo('solc verison {} installed to {}'.format(solc_version, solc_path))
+    click.echo('solc version {} installed to {}'.format(solc_version, solc_path))
 
 
 @cli.command()

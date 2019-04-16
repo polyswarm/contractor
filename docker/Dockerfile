@@ -26,4 +26,7 @@ RUN set -x && pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN set -x && pip install .
 
+# This will cause py-solc to get solc, which we can then package into the image.
+RUN contractor install-solc
+
 CMD ["./docker/deploy.sh"]
