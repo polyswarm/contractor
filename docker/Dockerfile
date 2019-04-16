@@ -17,6 +17,11 @@ RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
     && tar -C /usr/local/bin -xzvf dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
     && rm dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
+# Install solc that PolySwarm uses by defaul
+RUN mkdir -p ~/.py-solc/solc-v0.5.3/bin \
+    && wget -O ~/.py-solc/solc-v0.5.3/bin/solc https://github.com/ethereum/solidity/releases/download/v0.5.3/solc-static-linux \
+    && chmod +rx ~/.py-solc/solc-v0.5.3/bin/solc
+
 WORKDIR /usr/src/app
 
 COPY requirements.txt ./
