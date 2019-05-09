@@ -14,8 +14,11 @@ contract BountyRegistry is Pausable, Ownable {
 
     string public constant VERSION = "1.2.0";
 
+    enum BountyType {File, Url}
+
     struct Bounty {
         uint128 guid;
+        BountyType type;
         address author;
         uint256 amount;
         string artifactURI;
@@ -55,6 +58,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     event NewBounty(
         uint128 guid,
+        BountyType type,
         address author,
         uint256 amount,
         string artifactURI,
@@ -298,6 +302,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function postBounty(
         uint128 guid,
+        BountyType type,
         uint256 amount,
         string calldata artifactURI,
         uint256 numArtifacts,
@@ -323,6 +328,7 @@ contract BountyRegistry is Pausable, Ownable {
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
 
         bountiesByGuid[guid].guid = guid;
+        bountiesByGuid[guid].type = type;
         bountiesByGuid[guid].author = msg.sender;
         bountiesByGuid[guid].amount = amount;
         bountiesByGuid[guid].artifactURI = artifactURI;
@@ -341,6 +347,7 @@ contract BountyRegistry is Pausable, Ownable {
 
         emit NewBounty(
             bountiesByGuid[guid].guid,
+            bountiesByGuid[guid].type,
             bountiesByGuid[guid].author,
             bountiesByGuid[guid].amount,
             bountiesByGuid[guid].artifactURI,
@@ -784,7 +791,7 @@ contract BountyRegistry is Pausable, Ownable {
             randomNum -= int256(staking.balanceOf(votes[i].author));
 
             if (randomNum <= 0) {
-                voter = votes[i].author;
+                return votes[i].author;
                 break;
             }
         }
