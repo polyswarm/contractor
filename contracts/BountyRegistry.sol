@@ -791,7 +791,7 @@ contract BountyRegistry is Pausable, Ownable {
             randomNum -= int256(staking.balanceOf(votes[i].author));
 
             if (randomNum <= 0) {
-                return votes[i].author;
+                voter = votes[i].author;
                 break;
             }
         }
