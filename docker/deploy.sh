@@ -1,7 +1,6 @@
 #! /bin/bash
 
 set -ex
-
 mkdir -p consul
 rm -f consul/*.json
 

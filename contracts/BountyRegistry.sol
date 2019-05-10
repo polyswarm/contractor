@@ -58,7 +58,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     event NewBounty(
         uint128 guid,
-        uint256 artifactType,
+        string artifactType,
         address author,
         uint256 amount,
         string artifactURI,
@@ -299,9 +299,9 @@ contract BountyRegistry is Pausable, Ownable {
      *
      * @param artifactType string representation of an ArtifactType value
      */
-    function artifactTypeFromString(string artifactType) internal whenNotPaused returns (ArtifactType) {
-        if (keccak256(artifactType) == keccak256("file")) return ArtifactType.File;
-        if (keccak256(artifactType) == keccak256("url")) return ArtifactType.Url;
+    function artifactTypeFromString(string memory artifactType) public view whenNotPaused returns (ArtifactType) {
+        if (keccak256(bytes(artifactType)) == keccak256(bytes("file"))) return ArtifactType.File;
+        if (keccak256(bytes(artifactType)) == keccak256(bytes("url"))) return ArtifactType.Url;
         revert("Invalid artifact type string");
     }
 
@@ -311,7 +311,7 @@ contract BountyRegistry is Pausable, Ownable {
 
      * @param artifactType ArtifactType enum to convert to string
      */
-    function artifactTypeToString(ArtifactType artifactType) internal whenNotPaused returns (string) {
+    function artifactTypeToString(ArtifactType artifactType) public view whenNotPaused returns (string memory) {
         if (artifactType == ArtifactType.File) return "file";
         if (artifactType == ArtifactType.Url) return "url";
         return "";
@@ -327,7 +327,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function postBounty(
         uint128 guid,
-        string artifactType,
+        string calldata artifactType,
         uint256 amount,
         string calldata artifactURI,
         uint256 numArtifacts,
@@ -355,7 +355,7 @@ contract BountyRegistry is Pausable, Ownable {
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
 
         bountiesByGuid[guid].guid = guid;
-        bountiesByGuid[guid].artifactType = artifactTypeEnum
+        bountiesByGuid[guid].artifactType = artifactTypeEnum;
         bountiesByGuid[guid].author = msg.sender;
         bountiesByGuid[guid].amount = amount;
         bountiesByGuid[guid].artifactURI = artifactURI;
@@ -372,13 +372,15 @@ contract BountyRegistry is Pausable, Ownable {
 
         bloomByGuid[guid] = bloom;
 
+        Bounty storage b = bountiesByGuid[guid];
+
         emit NewBounty(
-            bountiesByGuid[guid].guid,
-            artifactTypeToString(bountiesByGuid[guid].artifactType),
-            bountiesByGuid[guid].author,
-            bountiesByGuid[guid].amount,
-            bountiesByGuid[guid].artifactURI,
-            bountiesByGuid[guid].expirationBlock
+            b.guid,
+            artifactTypeToString(b.artifactType),
+            b.author,
+            b.amount,
+            b.artifactURI,
+            b.expirationBlock
         );
     }
 
