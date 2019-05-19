@@ -58,7 +58,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     event NewBounty(
         uint128 guid,
-        string artifactType,
+        uint256 artifactType,
         address author,
         uint256 amount,
         string artifactURI,
@@ -293,31 +293,6 @@ contract BountyRegistry is Pausable, Ownable {
     }
 
     /**
-     * Function to help outside services send the right artifact type by
-     * checking some string input against known strings that match to
-     * ArtifactType enum values
-     *
-     * @param artifactType string representation of an ArtifactType value
-     */
-    function artifactTypeFromString(string memory artifactType) public view whenNotPaused returns (ArtifactType) {
-        if (keccak256(bytes(artifactType)) == keccak256(bytes("file"))) return ArtifactType.File;
-        if (keccak256(bytes(artifactType)) == keccak256(bytes("url"))) return ArtifactType.Url;
-        revert("Invalid artifact type string");
-    }
-
-    /**
-     * Function to transfer an ArtifactType enum value into a string for
-     * use by external services
-
-     * @param artifactType ArtifactType enum to convert to string
-     */
-    function artifactTypeToString(ArtifactType artifactType) public view whenNotPaused returns (string memory) {
-        if (artifactType == ArtifactType.File) return "file";
-        if (artifactType == ArtifactType.Url) return "url";
-        return "";
-    }
-
-    /**
      * Function called by end users and ambassadors to post a bounty
      *
      * @param guid the guid of the bounty, must be unique
@@ -327,7 +302,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function postBounty(
         uint128 guid,
-        string calldata artifactType,
+        uint256 artifactType,
         uint256 amount,
         string calldata artifactURI,
         uint256 numArtifacts,
@@ -348,14 +323,14 @@ contract BountyRegistry is Pausable, Ownable {
         require(numArtifacts > 0, "Not enough artifacts in bounty");
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
-
-        ArtifactType artifactTypeEnum = artifactTypeFromString(artifactType);
+        // Check that artifactType int does not exceed number of values
+        require(uint(ArtifactType.Url) >= artifactType, "Invalid artifact type");
 
         // Assess fees and transfer bounty amount into escrow
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
 
         bountiesByGuid[guid].guid = guid;
-        bountiesByGuid[guid].artifactType = artifactTypeEnum;
+        bountiesByGuid[guid].artifactType = ArtifactType(artifactType);
         bountiesByGuid[guid].author = msg.sender;
         bountiesByGuid[guid].amount = amount;
         bountiesByGuid[guid].artifactURI = artifactURI;
@@ -376,7 +351,7 @@ contract BountyRegistry is Pausable, Ownable {
 
         emit NewBounty(
             b.guid,
-            artifactTypeToString(b.artifactType),
+            uint256(b.artifactType),
             b.author,
             b.amount,
             b.artifactURI,
