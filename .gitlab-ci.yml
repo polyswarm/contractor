@@ -60,6 +60,8 @@ kick-e2e:
 
 builddock:
   stage: deploy
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
   only:
     - master
     - feature/docker-build
