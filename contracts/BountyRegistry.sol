@@ -14,8 +14,11 @@ contract BountyRegistry is Pausable, Ownable {
 
     string public constant VERSION = "1.2.0";
 
+    enum ArtifactType {FILE, URL, _END}
+
     struct Bounty {
         uint128 guid;
+        ArtifactType  artifactType;
         address author;
         uint256 amount;
         string artifactURI;
@@ -55,6 +58,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     event NewBounty(
         uint128 guid,
+        uint256 artifactType,
         address author,
         uint256 amount,
         string artifactURI,
@@ -298,6 +302,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function postBounty(
         uint128 guid,
+        uint256 artifactType,
         uint256 amount,
         string calldata artifactURI,
         uint256 numArtifacts,
@@ -318,11 +323,14 @@ contract BountyRegistry is Pausable, Ownable {
         require(numArtifacts > 0, "Not enough artifacts in bounty");
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
+        // Check that artifactType int does not exceed number of values
+        require(uint(ArtifactType._END) > artifactType, "Invalid artifact type");
 
         // Assess fees and transfer bounty amount into escrow
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
 
         bountiesByGuid[guid].guid = guid;
+        bountiesByGuid[guid].artifactType = ArtifactType(artifactType);
         bountiesByGuid[guid].author = msg.sender;
         bountiesByGuid[guid].amount = amount;
         bountiesByGuid[guid].artifactURI = artifactURI;
@@ -339,12 +347,15 @@ contract BountyRegistry is Pausable, Ownable {
 
         bloomByGuid[guid] = bloom;
 
+        Bounty storage b = bountiesByGuid[guid];
+
         emit NewBounty(
-            bountiesByGuid[guid].guid,
-            bountiesByGuid[guid].author,
-            bountiesByGuid[guid].amount,
-            bountiesByGuid[guid].artifactURI,
-            bountiesByGuid[guid].expirationBlock
+            b.guid,
+            uint256(b.artifactType),
+            b.author,
+            b.amount,
+            b.artifactURI,
+            b.expirationBlock
         );
     }
 
