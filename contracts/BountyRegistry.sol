@@ -14,7 +14,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     string public constant VERSION = "1.2.0";
 
-    enum ArtifactType {File, Url}
+    enum ArtifactType {FILE, URL, _END}
 
     struct Bounty {
         uint128 guid;
@@ -324,7 +324,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
         // Check that artifactType int does not exceed number of values
-        require(uint(ArtifactType.Url) >= artifactType, "Invalid artifact type");
+        require(uint(ArtifactType._END) > artifactType, "Invalid artifact type");
 
         // Assess fees and transfer bounty amount into escrow
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
