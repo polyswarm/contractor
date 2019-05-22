@@ -47,6 +47,7 @@ def post_bounty(bounty_registry, ambassador, **kwargs):
 
     args = {
         'guid': random_guid(),
+        'artifact_type': 0,
         'uri': random_artifact_uri(),
         'bloom': random_bloom(),
         'amount': 10 * 10 ** 18,
@@ -57,8 +58,8 @@ def post_bounty(bounty_registry, ambassador, **kwargs):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     NectarToken.functions.approve(BountyRegistry.address, args['amount'] + bounty_fee).transact({'from': ambassador})
-    return args['guid'], BountyRegistry.functions.postBounty(args['guid'], args['amount'], args['uri'],
-                                                             args['num_artifacts'], args['duration'],
+    return args['guid'], BountyRegistry.functions.postBounty(args['guid'], args['artifact_type'], args['amount'],
+                                                             args['uri'], args['num_artifacts'], args['duration'],
                                                              args['bloom']).transact({'from': ambassador})
 
 
@@ -210,9 +211,10 @@ def test_post_bounty(bounty_registry):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
 
-    _, txhash = post_bounty(bounty_registry, ambassador.address, guid=guid, uri=uri, amount=amount)
+    _, txhash = post_bounty(bounty_registry, ambassador.address, guid=guid, artifact_type=0, uri=uri, amount=amount)
     bounty = network.wait_and_process_receipt(txhash, BountyRegistry.events.NewBounty())
     assert bounty[0].args['guid'] == guid
+    assert bounty[0].args['artifactType'] == 0
     assert bounty[0].args['author'] == ambassador.address
     assert bounty[0].args['artifactURI'] == uri
     assert bounty[0].args['amount'] == amount
@@ -495,7 +497,7 @@ def test_arbiter_settle_after_voting_ends(bounty_registry, eth_tester):
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiters[0].address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -606,7 +608,7 @@ def test_settle_multi_artifact_bounty(bounty_registry, eth_tester):
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiters[0].address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -667,7 +669,7 @@ def test_any_arbiter_settle_after_256_blocks(bounty_registry, eth_tester):
     winner = random.choice(arbiters)
     settle_bounty(bounty_registry, winner.address, guid)
 
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
     assert selected == winner.address
 
@@ -722,7 +724,7 @@ def test_reach_quorum_if_all_vote_malicious_first(bounty_registry, eth_tester):
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiters[0].address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -780,7 +782,7 @@ def test_reach_quorum_if_all_vote_malicious_second(bounty_registry, eth_tester):
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiters[0].address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -837,7 +839,7 @@ def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiters[0].address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -977,7 +979,7 @@ def test_should_refund_bounty_amount_to_ambassador_if_no_assertions(bounty_regis
     settle_bounty(bounty_registry, ambassador.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     if selected != arbiter.address:
@@ -1062,7 +1064,7 @@ def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_some_
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1116,7 +1118,7 @@ def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_any_a
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1237,7 +1239,7 @@ def test_lose_bid_if_no_reveal(bounty_registry, eth_tester):
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1289,7 +1291,7 @@ def test_payout_bid_to_expert_if_mask_zero(bounty_registry, eth_tester):
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1341,7 +1343,7 @@ def test_payout_half_amount_lose_half_bid_when_half_right_half_wrong_one_expert(
     settle_bounty(bounty_registry, expert.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1396,7 +1398,7 @@ def test_payout_half_amount_lose_half_bid_when_half_right_half_wrong_two_experts
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1453,7 +1455,7 @@ def test_payout_when_two_experts_have_differing_incorrect_verdicts(bounty_regist
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1511,7 +1513,7 @@ def test_should_pay_out_amount_relative_to_bid_proportion(bounty_registry, eth_t
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1620,7 +1622,7 @@ def test_payout_bounty_fee_to_arbiter_if_no_votes(bounty_registry, eth_tester):
     settle_bounty(bounty_registry, ambassador.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1671,7 +1673,7 @@ def test_payout_bounty_fee_and_assertion_fees_to_arbiter(bounty_registry, eth_te
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1722,7 +1724,7 @@ def test_payout_all_to_arbiter_if_every_expert_wrong(bounty_registry, eth_tester
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1768,7 +1770,7 @@ def test_payout_so_arbiter_one_expert_profit_using_minimums(bounty_registry, eth
     settle_bounty(bounty_registry, expert.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
@@ -1819,7 +1821,7 @@ def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth
     settle_bounty(bounty_registry, expert1.address, guid)
 
     settle_bounty(bounty_registry, arbiter.address, guid)
-    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[6]
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
     assert selected != ZERO_ADDRESS
 
     # If we weren't the selected arbiter, call settle again with the selected one
