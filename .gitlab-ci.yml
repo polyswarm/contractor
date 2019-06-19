@@ -34,6 +34,8 @@ build-linux:
 
 test-linux:
   image: python:3.6
+  tags:
+    - kube
   stage: test
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
