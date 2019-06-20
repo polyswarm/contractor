@@ -1,6 +1,7 @@
 import logging
 
 from contractor.steps import Step
+from contractor.network import Chain
 
 logger = logging.getLogger(__name__)
 
@@ -26,4 +27,14 @@ class ArbiterStaking(Step):
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         stake_duration = contract_config.get('stake_duration', 100)
 
-        deployer.deploy(CONTRACT_NAME, nectar_token_address, stake_duration)
+        address = None
+        if network.chain == Chain.HOMECHAIN:
+            address = network.normalize_address(contract_config.get('home_address'))
+        elif network.chain == Chain.SIDECHAIN:
+            address = network.normalize_address(contract_config.get('side_address'))
+
+        if address and network.is_contract(address):
+            logger.warning('Using already deployed contract for network %s at %s', network.name, address)
+            deployer.at(CONTRACT_NAME, address)
+        else:
+            deployer.deploy(CONTRACT_NAME, nectar_token_address, stake_duration)
