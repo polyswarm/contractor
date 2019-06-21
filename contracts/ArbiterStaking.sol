@@ -155,10 +155,14 @@ contract ArbiterStaking is Pausable, Ownable {
      */
     function withdrawableBalanceOf(address addr) public view returns (uint256) {
         uint256 ret = 0;
-        if (block.number < stakeDuration) {
+        uint256 longest = registry.MAX_DURATION().add(registry.ASSERTION_REVEAL_WINDOW()).add(registry.arbiterVoteWindow());
+        bool deprecated = registry.deprecatedBlock() > 0 && block.number >= registry.deprecatedBlock().add(longest);
+
+        if (!deprecated && block.number < stakeDuration) {
             return ret;
         }
-        uint256 latest_block = block.number.sub(stakeDuration);
+
+        uint256 latest_block = !deprecated ? block.number.sub(stakeDuration) : block.number;
         Deposit[] storage ds = deposits[addr];
         for (uint256 i = 0; i < ds.length; i++) {
             if (ds[i].blockNumber <= latest_block) {
@@ -177,13 +181,17 @@ contract ArbiterStaking is Pausable, Ownable {
     function withdraw(uint256 value) public whenNotPaused {
         require(deposits[msg.sender].length > 0, "Cannot withdraw without some deposits.");
         uint256 remaining = value;
-        uint256 latest_block = block.number.sub(stakeDuration);
+
+        uint256 longest = registry.MAX_DURATION().add(registry.ASSERTION_REVEAL_WINDOW()).add(registry.arbiterVoteWindow());
+        bool deprecated = registry.deprecatedBlock() > 0 && block.number >= registry.deprecatedBlock().add(longest);
+
+        uint256 latest_block = !deprecated ? block.number.sub(stakeDuration) : block.number;
         Deposit[] storage ds = deposits[msg.sender];
 
         require(value <= withdrawableBalanceOf(msg.sender), "Value exceeds withdrawable balance");
         uint256 end = 0;
         uint256 i = 0;
-        // Determine which deposits we will modifiy
+        // Determine which deposits we will modify
         for (end = 0; end < ds.length; end++) {
             if (ds[end].blockNumber <= latest_block) {
                 if (ds[end].value >= remaining) {

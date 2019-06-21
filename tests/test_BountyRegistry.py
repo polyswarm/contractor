@@ -224,6 +224,20 @@ def test_post_bounty(bounty_registry):
     assert BountyRegistry.functions.bountiesByGuid(guid).call()[0] == guid
 
 
+def test_post_bounty_deprecated(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    ambassador = BountyRegistry.ambassadors[0]
+    guid = random_guid()
+    uri = random_artifact_uri()
+    amount = 10 * 10 ** 18
+
+    BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
+
+    with pytest.raises(TransactionFailed):
+        post_bounty(bounty_registry, ambassador.address, guid=guid, artifact_type=0, uri=uri, amount=amount)
+
+
 def test_reject_duplicate_guids(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
 

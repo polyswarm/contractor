@@ -251,7 +251,7 @@ contract BountyRegistry is Pausable, Ownable {
      * Deprecate this contract
      * The contract disables new bounties, but allows other parts to function
      */
-    function deprecate() externam onlyOwner {
+    function deprecate() external onlyOwner {
         deprecatedBlock = block.number;
         emit Deprecated(deprecatedBlock);
     }
