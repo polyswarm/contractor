@@ -143,7 +143,7 @@ contract BountyRegistry is Pausable, Ownable {
     );
 
     event Deprecated(
-        uint256 blockNumber
+        address indexed bountyRegistry
     );
 
     uint256 public deprecatedBlock;
@@ -253,7 +253,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function deprecate() external onlyOwner {
         deprecatedBlock = block.number;
-        emit Deprecated(deprecatedBlock);
+        emit Deprecated(address(this));
     }
 
     /** Function only callable when not deprecated */

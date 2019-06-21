@@ -199,6 +199,17 @@ def test_should_allow_owner_to_perform_window_management_if_no_manager_set(bount
     BountyRegistry.functions.setArbiterVoteWindow(3).transact({'from': window_manager.address})
 
 
+def test_emit_event_deprecate(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    txhash = BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
+
+    deprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+
+    assert deprecate[0].args['bountyRegistry'] == BountyRegistry.address
+
+
 def test_post_bounty(bounty_registry):
     NectarToken = bounty_registry.NectarToken
     BountyRegistry = bounty_registry.BountyRegistry
