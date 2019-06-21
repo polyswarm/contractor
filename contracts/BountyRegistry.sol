@@ -247,19 +247,19 @@ contract BountyRegistry is Pausable, Ownable {
         emit WindowsUpdated(ASSERTION_REVEAL_WINDOW, arbiterVoteWindow);
     }
 
-    /**
-     * Deprecate this contract
-     * The contract disables new bounties, but allows other parts to function
-     */
-    function deprecate() external onlyOwner {
-        deprecatedBlock = block.number;
-        emit Deprecated(address(this));
-    }
-
     /** Function only callable when not deprecated */
     modifier whenNotDeprecated() {
         require(deprecatedBlock == 0, "Contract is deprecated");
         _;
+    }
+
+    /**
+     * Deprecate this contract
+     * The contract disables new bounties, but allows other parts to function
+     */
+    function deprecate() external onlyOwner whenNotDeprecated {
+        deprecatedBlock = block.number;
+        emit Deprecated(address(this));
     }
 
     /**
