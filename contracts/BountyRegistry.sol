@@ -142,6 +142,11 @@ contract BountyRegistry is Pausable, Ownable {
         uint256 arbiterVoteWindow
     );
 
+    event Deprecated(
+        uint256 blockNumber
+    );
+
+    uint256 public deprecatedBlock;
     uint256 public arbiterCount;
     uint256 public arbiterVoteWindow;
     uint128[] public bountyGuids;
@@ -165,6 +170,7 @@ contract BountyRegistry is Pausable, Ownable {
         bountyFee = DEFAULT_BOUNTY_FEE;
         assertionFee = DEFAULT_ASSERTION_FEE;
 
+        deprecatedBlock = 0;
         token = NectarToken(_token);
         staking = ArbiterStaking(_arbiterStaking);
         arbiterVoteWindow = _arbiterVoteWindow;
@@ -242,6 +248,21 @@ contract BountyRegistry is Pausable, Ownable {
     }
 
     /**
+     * Deprecate this contract
+     * The contract disables new bounties, but allows other parts to function
+     */
+    function deprecate() externam onlyOwner {
+        deprecatedBlock = block.number;
+        emit Deprecated(deprecatedBlock);
+    }
+
+    /** Function only callable when not deprecated */
+    modifier whenNotDeprecated() {
+        require(deprecatedBlock == 0, "Contract is deprecated");
+        _;
+    }
+
+    /**
      * Function to check if an address is a valid arbiter
      *
      * @param addr The address to check
@@ -311,6 +332,7 @@ contract BountyRegistry is Pausable, Ownable {
     )
     external
     whenNotPaused
+    whenNotDeprecated
     {
         // Check if a bounty with this GUID has already been initialized
         require(bountiesByGuid[guid].author == address(0), "GUID already in use");
