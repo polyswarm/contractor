@@ -260,6 +260,37 @@ def arbiter_staking(artifacts, eth_tester, web3):
                                        ('network', 'deployer', 'NectarToken', 'BountyRegistry', 'ArbiterStaking'))
     return ArbiterStakingFixture(network, deployer, nectar_token, bounty_registry, arbiter_staking)
 
+@pytest.fixture
+def arbiter_long_staking(artifacts, eth_tester, web3):
+    chain = Chain.HOMECHAIN
+    arbiter = TestAccount(eth_tester)
+    fee_manager = TestAccount(eth_tester)
+    window_manager = TestAccount(eth_tester)
+
+    nectar_token = NectarToken([], [arbiter])
+    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, [], [], [arbiter], fee_manager,
+                                     window_manager)
+    arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, 100000, arbiter)
+
+    config = {
+        'NectarToken': nectar_token.config(chain),
+        'BountyRegistry': bounty_registry.config(chain),
+        'ArbiterStaking': arbiter_staking.config(chain),
+    }
+
+    network, deployer = deploy(config, chain, artifacts, eth_tester, web3)
+
+    nectar_token.bind(deployer.contracts['NectarToken'])
+    nectar_token.owner = network.address
+    bounty_registry.bind(deployer.contracts['BountyRegistry'])
+    bounty_registry.owner = network.address
+    arbiter_staking.bind(deployer.contracts['ArbiterStaking'])
+    arbiter_staking.owner = network.address
+
+    ArbiterStakingFixture = namedtuple('ArbiterStakingFixture',
+                                       ('network', 'deployer', 'NectarToken', 'BountyRegistry', 'ArbiterStaking'))
+    return ArbiterStakingFixture(network, deployer, nectar_token, bounty_registry, arbiter_staking)
+
 
 @pytest.fixture
 def erc20_relay(artifacts, eth_tester, web3):

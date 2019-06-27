@@ -199,6 +199,17 @@ def test_should_allow_owner_to_perform_window_management_if_no_manager_set(bount
     BountyRegistry.functions.setArbiterVoteWindow(3).transact({'from': window_manager.address})
 
 
+def test_emit_event_deprecate(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    txhash = BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
+
+    deprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+
+    assert deprecate[0].args['bountyRegistry'] == BountyRegistry.address
+
+
 def test_post_bounty(bounty_registry):
     NectarToken = bounty_registry.NectarToken
     BountyRegistry = bounty_registry.BountyRegistry
@@ -222,6 +233,20 @@ def test_post_bounty(bounty_registry):
     assert NectarToken.functions.balanceOf(ambassador.address).call() == USER_STARTING_BALANCE - bounty_fee - amount
     assert BountyRegistry.functions.getNumberOfBounties().call() == 1
     assert BountyRegistry.functions.bountiesByGuid(guid).call()[0] == guid
+
+
+def test_post_bounty_deprecated(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    ambassador = BountyRegistry.ambassadors[0]
+    guid = random_guid()
+    uri = random_artifact_uri()
+    amount = 10 * 10 ** 18
+
+    BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
+
+    with pytest.raises(TransactionFailed):
+        post_bounty(bounty_registry, ambassador.address, guid=guid, artifact_type=0, uri=uri, amount=amount)
 
 
 def test_reject_duplicate_guids(bounty_registry):

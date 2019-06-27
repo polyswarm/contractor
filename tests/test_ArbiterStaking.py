@@ -163,6 +163,42 @@ def test_allow_withdrawals_after_staking_time(arbiter_staking, eth_tester):
     assert ArbiterStaking.functions.withdrawableBalanceOf(ArbiterStaking.arbiter.address).call() == 0
 
 
+def test_allow_withdrawals_after_deprecation(arbiter_long_staking, eth_tester):
+    NectarToken = arbiter_long_staking.NectarToken
+    ArbiterStaking = arbiter_long_staking.ArbiterStaking
+    BountyRegistry = arbiter_long_staking.BountyRegistry
+    network = arbiter_long_staking.network
+
+    NectarToken.functions.approve(ArbiterStaking.address, 1).transact({'from': ArbiterStaking.arbiter.address})
+    txhash = ArbiterStaking.functions.deposit(1).transact({'from': ArbiterStaking.arbiter.address})
+    deposit = network.wait_and_process_receipt(txhash, ArbiterStaking.events.NewDeposit())
+    assert deposit[0].args['from'] == ArbiterStaking.arbiter.address
+    assert deposit[0].args['value'] == 1
+
+    assert ArbiterStaking.functions.balanceOf(ArbiterStaking.arbiter.address).call() == 1
+    assert ArbiterStaking.functions.withdrawableBalanceOf(ArbiterStaking.arbiter.address).call() == 0
+
+    with pytest.raises(TransactionFailed):
+        ArbiterStaking.functions.withdraw(1).transact({'from': ArbiterStaking.arbiter.address})
+
+    BountyRegistry.functions.deprecate().transact({'from': BountyRegistry.owner})
+
+    eth_tester.mine_blocks(BountyRegistry.functions.MAX_DURATION().call())
+    eth_tester.mine_blocks(BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call())
+    eth_tester.mine_blocks(BountyRegistry.functions.arbiterVoteWindow().call())
+
+    assert ArbiterStaking.functions.balanceOf(ArbiterStaking.arbiter.address).call() == 1
+    assert ArbiterStaking.functions.withdrawableBalanceOf(ArbiterStaking.arbiter.address).call() == 1
+
+    txhash = ArbiterStaking.functions.withdraw(1).transact({'from': ArbiterStaking.arbiter.address})
+    withdrawal = network.wait_and_process_receipt(txhash, ArbiterStaking.events.NewWithdrawal())
+    assert withdrawal[0].args['to'] == ArbiterStaking.arbiter.address
+    assert withdrawal[0].args['value'] == 1
+
+    assert ArbiterStaking.functions.balanceOf(ArbiterStaking.arbiter.address).call() == 0
+    assert ArbiterStaking.functions.withdrawableBalanceOf(ArbiterStaking.arbiter.address).call() == 0
+
+
 def test_allow_combinations_of_deposits_and_withdrawals(arbiter_staking, eth_tester):
     NectarToken = arbiter_staking.NectarToken
     ArbiterStaking = arbiter_staking.ArbiterStaking
