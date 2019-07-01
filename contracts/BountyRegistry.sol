@@ -160,7 +160,7 @@ contract BountyRegistry is Pausable, Ownable {
     mapping(address => bool) public arbiters;
     mapping(uint256 => mapping(uint256 => uint256)) public voteCountByGuid;
     mapping(uint256 => mapping(address => bool)) public arbiterVoteRegistryByGuid;
-    mapping(uint256 => mapping(address => bool)) public expertAssertionResgistryByGuid;
+    mapping(uint256 => mapping(address => bool)) public expertAssertionRegistryByGuid;
     mapping(uint128 => mapping(address => bool)) public bountySettled;
 
     /**
@@ -410,11 +410,11 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if this bounty is active
         require(bountiesByGuid[bountyGuid].expirationBlock > block.number, "Bounty inactive");
         // Check if the sender has already made an assertion
-        require(expertAssertionResgistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
+        require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
         // Assess fees and transfer bid amount into escrow
         token.safeTransferFrom(msg.sender, address(this), bid.add(assertionFee));
 
-        expertAssertionResgistryByGuid[bountyGuid][msg.sender] = true;
+        expertAssertionRegistryByGuid[bountyGuid][msg.sender] = true;
 
         Assertion memory a = Assertion(
             msg.sender,
