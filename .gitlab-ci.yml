@@ -70,7 +70,7 @@ release-pre-latest-linux:
 # Release Stage
 ###############################################################
 
-staging:
+building-intermidiary-images:
   stage: release
   trigger: polyswarm/ci-image
 
