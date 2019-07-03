@@ -53,6 +53,7 @@ def post_bounty(bounty_registry, ambassador, **kwargs):
         'amount': 10 * 10 ** 18,
         'num_artifacts': 1,
         'duration': 10,
+        'metadata': '',
     }
     args.update(**kwargs)
 
@@ -60,7 +61,8 @@ def post_bounty(bounty_registry, ambassador, **kwargs):
     NectarToken.functions.approve(BountyRegistry.address, args['amount'] + bounty_fee).transact({'from': ambassador})
     return args['guid'], BountyRegistry.functions.postBounty(args['guid'], args['artifact_type'], args['amount'],
                                                              args['uri'], args['num_artifacts'], args['duration'],
-                                                             args['bloom']).transact({'from': ambassador})
+                                                             args['bloom'],
+                                                             args['metadata']).transact({'from': ambassador})
 
 
 def int_to_bytes(i):
