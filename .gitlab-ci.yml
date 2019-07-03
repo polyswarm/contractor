@@ -7,10 +7,12 @@ stages:
   - build
   - test
   - e2e
+  - pre-release
   - release
 
 variables:
   DOCKER_HOST: tcp://localhost:2375/
+  RELEASE_LATEST: 'false'
 
 ###############################################################
 # Build Stage (jobs inside a stage run in parallel)
@@ -26,6 +28,9 @@ build-linux:
     - docker pull $REPO_URL/contractor:latest || true
     - docker build -t $REPO_URL/contractor:$CI_COMMIT_SHA -f docker/Dockerfile --cache-from=$REPO_URL/contractor:latest .
     - docker push $REPO_URL/contractor:$CI_COMMIT_SHA
+  except:
+    variables:
+      - $RELEASE_LATEST == "true"
 
 
 ###############################################################
@@ -42,53 +47,20 @@ test-linux:
     - pip install tox
   script:
     - tox -e py36
+  except:
+    variables:
+      - $RELEASE_LATEST == "true"
 
 ###############################################################
 # End-to-end Stage
 ###############################################################
 
-kick-e2e:
-    tags:
-      - kube
-    stage: e2e
-    script:
-    - set -e
-
-    # kick e2e
-    - >-
-      E2E_PIPELINE_ID=`curl
-      --silent
-      --request POST
-      --form "token=$CI_JOB_TOKEN"
-      --form "variables[SOURCE_PROJECT]=$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
-      --form "variables[SOURCE_BRANCH]=$CI_COMMIT_REF_NAME"
-      --form ref=master
-      "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline" | jq -r ".id"`
-
-    # poll for it to finish
-    - >-
-      while [ -z $PIPELINE_STATUS ] || [ $PIPELINE_STATUS = "pending" ] || [ $PIPELINE_STATUS = "running" ]; do
-        PIPELINE_STATUS=`curl \
-          --silent \
-          --header "PRIVATE-TOKEN: $CI_CUSTOM_CI_PAT" \
-          "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/pipelines/$E2E_PIPELINE_ID" | jq -r ".status"`
-        echo "waiting for e2e pipeline ...";
-        sleep 5;
-      done
-
-    # check for success
-    - >-
-      if [ $PIPELINE_STATUS != "success" ]; then
-        echo "failure further down the pipeline"
-        exit 1
-      fi
-
 ###############################################################
-# Release Stage
+# Pre-Release Stage
 ###############################################################
 
-release-latest-linux:
-  stage: release
+release-pre-latest-linux:
+  stage: pre-release
   tags:
     - kube
   only:
@@ -97,8 +69,66 @@ release-latest-linux:
     # Gets the current image that was built in the CI for this commit
     - docker pull $REPO_URL/contractor:$CI_COMMIT_SHA
     # Creates new tags for this image, one that should go to AWS and another to DockerHub with the tag "latest"
-    - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA $REPO_URL/contractor:latest
-    - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA polyswarm/contractor:latest
+    - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA $REPO_URL/contractor:pre-latest
+    # Pushes to AWS
+    - docker push $REPO_URL/contractor:pre-latest
+  except:
+    variables:
+      - $RELEASE_LATEST == "true"
+
+###############################################################
+# Release Stage
+###############################################################
+
+building-intermediary-images:
+  stage: release
+  tags:
+    - kube
+  only:
+    refs:
+      - master
+  except:
+    variables:
+      - $RELEASE_LATEST == "true"
+  trigger: polyswarm/ci-image
+
+# triggers itself in a new pipeline with the RELEASE_LATEST set
+# it will only retag images from pre-latest to latest
+manual-release-latest-linux:
+  stage: release
+  tags:
+    - kube
+  only:
+    refs:
+      - master
+  except:
+    variables:
+      - $RELEASE_LATEST == "true"
+  script:
+    - >-
+      curl
+      --request POST
+      --form "token=$CI_JOB_TOKEN"
+      --form "variables[RELEASE_LATEST]=true"
+      --form ref=master
+      "https://gitlab.polyswarm.io/api/v4/projects/181/trigger/pipeline"
+  when: manual
+
+release-latest-linux:
+  stage: release
+  tags:
+    - kube
+  only:
+    refs:
+      - master
+    variables:
+      - $RELEASE_LATEST == "true"
+  script:
+    # Gets the current image that was built in the CI for this commit
+    - docker pull $REPO_URL/contractor:pre-latest
+    # Creates new tags for this image, one that should go to AWS and another to DockerHub with the tag "latest"
+    - docker tag $REPO_URL/contractor:pre-latest $REPO_URL/contractor:latest
+    - docker tag $REPO_URL/contractor:pre-latest polyswarm/contractor:latest
     # Pushes to AWS
     - docker push $REPO_URL/contractor:latest
     # Pushes to Docker Hub
