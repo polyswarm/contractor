@@ -12,7 +12,7 @@ stages:
 
 variables:
   DOCKER_HOST: tcp://localhost:2375/
-  RELEASE_LATEST: false
+  RELEASE_LATEST: 'false'
 
 ###############################################################
 # Build Stage (jobs inside a stage run in parallel)
