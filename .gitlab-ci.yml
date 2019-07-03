@@ -12,6 +12,7 @@ stages:
 
 variables:
   DOCKER_HOST: tcp://localhost:2375/
+  RELEASE_LATEST: false
 
 ###############################################################
 # Build Stage (jobs inside a stage run in parallel)
@@ -27,6 +28,9 @@ build-linux:
     - docker pull $REPO_URL/contractor:latest || true
     - docker build -t $REPO_URL/contractor:$CI_COMMIT_SHA -f docker/Dockerfile --cache-from=$REPO_URL/contractor:latest .
     - docker push $REPO_URL/contractor:$CI_COMMIT_SHA
+  except:
+    variables:
+      - $RELEASE_LATEST == true
 
 
 ###############################################################
@@ -43,6 +47,9 @@ test-linux:
     - pip install tox
   script:
     - tox -e py36
+  except:
+    variables:
+      - $RELEASE_LATEST == true
 
 ###############################################################
 # End-to-end Stage
@@ -65,31 +72,66 @@ release-pre-latest-linux:
     - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA $REPO_URL/contractor:pre-latest
     # Pushes to AWS
     - docker push $REPO_URL/contractor:pre-latest
+  except:
+    variables:
+      - $RELEASE_LATEST == true
 
 ###############################################################
 # Release Stage
 ###############################################################
 
-building-intermidiary-images:
+building-intermediary-images:
   stage: release
+  tags:
+    - kube
+  only:
+    refs:
+      - master
+  except:
+    variables:
+      - $RELEASE_LATEST == true
   trigger: polyswarm/ci-image
+
+# triggers itself in a new pipeline with the RELEASE_LATEST set
+# it will only retag images from pre-latest to latest
+manual-release-latest-linux:
+  stage: release
+  tags:
+    - kube
+  only:
+    refs:
+      - master
+  except:
+    variables:
+      - $RELEASE_LATEST == true
+  script:
+    - >-
+      curl
+      --request POST
+      --form "token=$CI_JOB_TOKEN"
+      --form "variables[RELEASE_LATEST]=true"
+      --form ref=master
+      "https://gitlab.polyswarm.io/api/v4/projects/181/trigger/pipeline"
+  when: manual
 
 release-latest-linux:
   stage: release
   tags:
     - kube
   only:
-    - master
+    refs:
+      - master
+    variables:
+      - $RELEASE_LATEST == true
   script:
     # Gets the current image that was built in the CI for this commit
     - docker pull $REPO_URL/contractor:pre-latest
     # Creates new tags for this image, one that should go to AWS and another to DockerHub with the tag "latest"
-    - docker tag $REPO_URL/contractor:pre-latest $REPO_URL/contractor:pre-latest
-    - docker tag $REPO_URL/contractor:pre-latest polyswarm/contractor:pre-latest
+    - docker tag $REPO_URL/contractor:pre-latest $REPO_URL/contractor:latest
+    - docker tag $REPO_URL/contractor:pre-latest polyswarm/contractor:latest
     # Pushes to AWS
     - docker push $REPO_URL/contractor:latest
     # Pushes to Docker Hub
     - docker logout
     - docker login -u "$CI_CUSTOM_DOCKER_HUB_USERNAME" -p "$CI_CUSTOM_DOCKER_HUB_PASSWORD"
     - docker push polyswarm/contractor:latest
-  when: manual
