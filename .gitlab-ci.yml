@@ -7,6 +7,7 @@ stages:
   - build
   - test
   - e2e
+  - pre-release
   - release
 
 variables:
@@ -48,11 +49,11 @@ test-linux:
 ###############################################################
 
 ###############################################################
-# Release Stage
+# Pre-Release Stage
 ###############################################################
 
 release-pre-latest-linux:
-  stage: release
+  stage: pre-release
   tags:
     - kube
   only:
@@ -64,6 +65,14 @@ release-pre-latest-linux:
     - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA $REPO_URL/contractor:pre-latest
     # Pushes to AWS
     - docker push $REPO_URL/contractor:pre-latest
+
+###############################################################
+# Release Stage
+###############################################################
+
+staging:
+  stage: release
+  trigger: polyswarm/ci-image
 
 release-latest-linux:
   stage: release
