@@ -237,6 +237,34 @@ def test_post_bounty(bounty_registry):
     assert BountyRegistry.functions.bountiesByGuid(guid).call()[0] == guid
 
 
+def test_post_bounty_with_metadata(bounty_registry):
+    NectarToken = bounty_registry.NectarToken
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    ambassador = BountyRegistry.ambassadors[0]
+    guid = random_guid()
+    uri = random_artifact_uri()
+    amount = 10 * 10 ** 18
+    metadata = 'Qm'
+
+    bounty_fee = BountyRegistry.functions.bountyFee().call()
+
+    _, txhash = post_bounty(bounty_registry, ambassador.address, guid=guid, artifact_type=0, uri=uri, amount=amount,
+                            metadata=metadata)
+    bounty = network.wait_and_process_receipt(txhash, BountyRegistry.events.NewBounty())
+    assert bounty[0].args['guid'] == guid
+    assert bounty[0].args['artifactType'] == 0
+    assert bounty[0].args['author'] == ambassador.address
+    assert bounty[0].args['artifactURI'] == uri
+    assert bounty[0].args['amount'] == amount
+    assert bounty[0].args['metadata'] == metadata
+
+    assert NectarToken.functions.balanceOf(ambassador.address).call() == USER_STARTING_BALANCE - bounty_fee - amount
+    assert BountyRegistry.functions.getNumberOfBounties().call() == 1
+    assert BountyRegistry.functions.bountiesByGuid(guid).call()[0] == guid
+
+
 def test_post_bounty_deprecated(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
 
