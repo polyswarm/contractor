@@ -96,6 +96,7 @@ building-intermediary-images:
       curl
       --request POST
       --form "token=$CI_JOB_TOKEN"
+      --form "variables[POLYSWARMD_TAG]=${POLYSWARMD_TAG:-latest}"
       --form ref=master
       "$TRIGGER_URL_CONTRACTOR"
 
