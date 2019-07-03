@@ -12,7 +12,7 @@ contract BountyRegistry is Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "1.2.0";
+    string public constant VERSION = "1.3.0";
 
     enum ArtifactType {FILE, URL, _END}
 
@@ -28,6 +28,7 @@ contract BountyRegistry is Pausable, Ownable {
         bool quorumReached;
         uint256 quorumBlock;
         uint256 quorumMask;
+        string metadata;
     }
 
     struct Assertion {
@@ -62,7 +63,8 @@ contract BountyRegistry is Pausable, Ownable {
         address author,
         uint256 amount,
         string artifactURI,
-        uint256 expirationBlock
+        uint256 expirationBlock,
+        string metadata
     );
 
     event NewAssertion(
@@ -158,7 +160,7 @@ contract BountyRegistry is Pausable, Ownable {
     mapping(address => bool) public arbiters;
     mapping(uint256 => mapping(uint256 => uint256)) public voteCountByGuid;
     mapping(uint256 => mapping(address => bool)) public arbiterVoteRegistryByGuid;
-    mapping(uint256 => mapping(address => bool)) public expertAssertionResgistryByGuid;
+    mapping(uint256 => mapping(address => bool)) public expertAssertionRegistryByGuid;
     mapping(uint128 => mapping(address => bool)) public bountySettled;
 
     /**
@@ -328,7 +330,8 @@ contract BountyRegistry is Pausable, Ownable {
         string calldata artifactURI,
         uint256 numArtifacts,
         uint256 durationBlocks,
-        uint256[8] calldata bloom
+        uint256[8] calldata bloom,
+        string calldata metadata
     )
     external
     whenNotPaused
@@ -356,7 +359,7 @@ contract BountyRegistry is Pausable, Ownable {
         bountiesByGuid[guid].author = msg.sender;
         bountiesByGuid[guid].amount = amount;
         bountiesByGuid[guid].artifactURI = artifactURI;
-
+        bountiesByGuid[guid].metadata = metadata;
         // Number of artifacts is submitted as part of the bounty, we have no
         // way to check how many exist in this IPFS resource. For an IPFS
         // resource with N artifacts, if numArtifacts < N only the first
@@ -377,7 +380,8 @@ contract BountyRegistry is Pausable, Ownable {
             b.author,
             b.amount,
             b.artifactURI,
-            b.expirationBlock
+            b.expirationBlock,
+            b.metadata
         );
     }
 
@@ -406,11 +410,11 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if this bounty is active
         require(bountiesByGuid[bountyGuid].expirationBlock > block.number, "Bounty inactive");
         // Check if the sender has already made an assertion
-        require(expertAssertionResgistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
+        require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
         // Assess fees and transfer bid amount into escrow
         token.safeTransferFrom(msg.sender, address(this), bid.add(assertionFee));
 
-        expertAssertionResgistryByGuid[bountyGuid][msg.sender] = true;
+        expertAssertionRegistryByGuid[bountyGuid][msg.sender] = true;
 
         Assertion memory a = Assertion(
             msg.sender,
