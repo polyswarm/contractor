@@ -87,7 +87,7 @@ kick-e2e:
 # Release Stage
 ###############################################################
 
-release-latest-linux:
+release-pre-latest-linux:
   stage: release
   tags:
     - kube
@@ -97,11 +97,26 @@ release-latest-linux:
     # Gets the current image that was built in the CI for this commit
     - docker pull $REPO_URL/contractor:$CI_COMMIT_SHA
     # Creates new tags for this image, one that should go to AWS and another to DockerHub with the tag "latest"
-    - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA $REPO_URL/contractor:latest
-    - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA polyswarm/contractor:latest
+    - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA $REPO_URL/contractor:pre-latest
+    # Pushes to AWS
+    - docker push $REPO_URL/contractor:pre-latest
+
+release-latest-linux:
+  stage: release
+  tags:
+    - kube
+  only:
+    - master
+  script:
+    # Gets the current image that was built in the CI for this commit
+    - docker pull $REPO_URL/contractor:pre-latest
+    # Creates new tags for this image, one that should go to AWS and another to DockerHub with the tag "latest"
+    - docker tag $REPO_URL/contractor:pre-latest $REPO_URL/contractor:pre-latest
+    - docker tag $REPO_URL/contractor:pre-latest polyswarm/contractor:pre-latest
     # Pushes to AWS
     - docker push $REPO_URL/contractor:latest
     # Pushes to Docker Hub
     - docker logout
     - docker login -u "$CI_CUSTOM_DOCKER_HUB_USERNAME" -p "$CI_CUSTOM_DOCKER_HUB_PASSWORD"
     - docker push polyswarm/contractor:latest
+  when: manual
