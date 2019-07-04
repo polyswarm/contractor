@@ -27,7 +27,7 @@ self-trigger-with-manual-tag:
       --request POST
       --form "token=$CI_JOB_TOKEN"
       --form "variables[MANUAL_IMAGE_TAG]=manual-tag"
-      --form ref=master
+      --form ref=$CI_COMMIT_REF_NAME
       "https://gitlab.polyswarm.io/api/v4/projects/$CI_PROJECT_ID/trigger/pipeline"
   when: manual
 
