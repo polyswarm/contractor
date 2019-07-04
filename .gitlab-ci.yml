@@ -16,6 +16,21 @@ variables:
 # Build Stage (jobs inside a stage run in parallel)
 ###############################################################
 
+# triggers itself in a new pipeline with the MANUAL_IMAGE_TAG=manual-tag
+self-trigger-with-manual-tag:
+  stage: build
+  tags:
+    - kube
+  script:
+    - >-
+      curl
+      --request POST
+      --form "token=$CI_JOB_TOKEN"
+      --form "variables[MANUAL_IMAGE_TAG]=manual-tag"
+      --form ref=master
+      "https://gitlab.polyswarm.io/api/v4/projects/$CI_PROJECT_ID/trigger/pipeline"
+  when: manual
+
 build-linux:
   stage: build
   variables:
@@ -46,22 +61,6 @@ test-linux:
 ###############################################################
 # End-to-end Stage
 ###############################################################
-
-# triggers itself in a new pipeline with the MANUAL_IMAGE_TAG=manual-tag
-e2e-self-trigger-with-manual-tag:
-  stage: e2e
-  tags:
-    - kube
-  script:
-    - >-
-      curl
-      --request POST
-      --form "token=$CI_JOB_TOKEN"
-      --form "variables[MANUAL_IMAGE_TAG]=manual-tag"
-      --form ref=master
-      "https://gitlab.polyswarm.io/api/v4/projects/$CI_PROJECT_ID/trigger/pipeline"
-  when: manual
-
 
 ###############################################################
 # Release Stage
