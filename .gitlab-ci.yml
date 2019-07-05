@@ -7,16 +7,29 @@ stages:
   - build
   - test
   - e2e
-  - pre-release
   - release
 
 variables:
   DOCKER_HOST: tcp://localhost:2375/
-  RELEASE_LATEST: 'false'
 
 ###############################################################
 # Build Stage (jobs inside a stage run in parallel)
 ###############################################################
+
+# triggers itself in a new pipeline with the MANUAL_IMAGE_TAG=manual-tag
+self-trigger-with-manual-tag:
+  stage: build
+  tags:
+    - kube
+  script:
+    - >-
+      curl
+      --request POST
+      --form "token=$CI_JOB_TOKEN"
+      --form "variables[MANUAL_IMAGE_TAG]=manual-tag"
+      --form ref=$CI_COMMIT_REF_NAME
+      "https://gitlab.polyswarm.io/api/v4/projects/$CI_PROJECT_ID/trigger/pipeline"
+  when: manual
 
 build-linux:
   stage: build
@@ -26,11 +39,8 @@ build-linux:
     - kube
   script:
     - docker pull $REPO_URL/contractor:latest || true
-    - docker build -t $REPO_URL/contractor:$CI_COMMIT_SHA -f docker/Dockerfile --cache-from=$REPO_URL/contractor:latest .
-    - docker push $REPO_URL/contractor:$CI_COMMIT_SHA
-  except:
-    variables:
-      - $RELEASE_LATEST == "true"
+    - docker build -t $REPO_URL/contractor:${MANUAL_IMAGE_TAG:-$CI_COMMIT_SHA} -f docker/Dockerfile --cache-from=$REPO_URL/contractor:latest .
+    - docker push $REPO_URL/contractor:${MANUAL_IMAGE_TAG:-$CI_COMMIT_SHA}
 
 
 ###############################################################
@@ -47,80 +57,14 @@ test-linux:
     - pip install tox
   script:
     - tox -e py36
-  except:
-    variables:
-      - $RELEASE_LATEST == "true"
 
 ###############################################################
 # End-to-end Stage
 ###############################################################
 
 ###############################################################
-# Pre-Release Stage
-###############################################################
-
-release-pre-latest-linux:
-  stage: pre-release
-  tags:
-    - kube
-  only:
-    - master
-  script:
-    # Gets the current image that was built in the CI for this commit
-    - docker pull $REPO_URL/contractor:$CI_COMMIT_SHA
-    # Creates new tags for this image, one that should go to AWS and another to DockerHub with the tag "latest"
-    - docker tag $REPO_URL/contractor:$CI_COMMIT_SHA $REPO_URL/contractor:pre-latest
-    # Pushes to AWS
-    - docker push $REPO_URL/contractor:pre-latest
-  except:
-    variables:
-      - $RELEASE_LATEST == "true"
-
-###############################################################
 # Release Stage
 ###############################################################
-
-# Triggers a CI pipeline for ci-image
-building-intermediary-images:
-  stage: release
-  tags:
-    - kube
-  only:
-    refs:
-      - master
-  except:
-    variables:
-      - $RELEASE_LATEST == "true"
-  script:
-    - >-
-      curl
-      --request POST
-      --form "token=$CI_JOB_TOKEN"
-      --form "variables[POLYSWARMD_TAG]=${POLYSWARMD_TAG:-latest}"
-      --form ref=master
-      "$TRIGGER_URL_CONTRACTOR"
-
-# triggers itself in a new pipeline with the RELEASE_LATEST set
-# it will only retag images from pre-latest to latest
-manual-release-latest-linux:
-  stage: release
-  tags:
-    - kube
-  only:
-    refs:
-      - master
-  except:
-    variables:
-      - $RELEASE_LATEST == "true"
-  script:
-    - >-
-      curl
-      --request POST
-      --form "token=$CI_JOB_TOKEN"
-      --form "variables[RELEASE_LATEST]=true"
-      --form ref=master
-      "https://gitlab.polyswarm.io/api/v4/projects/181/trigger/pipeline"
-  when: manual
 
 release-latest-linux:
   stage: release
@@ -133,10 +77,10 @@ release-latest-linux:
       - $RELEASE_LATEST == "true"
   script:
     # Gets the current image that was built in the CI for this commit
-    - docker pull $REPO_URL/contractor:pre-latest
+    - docker pull $REPO_URL/contractor:${MANUAL_IMAGE_TAG:-$CI_COMMIT_SHA}
     # Creates new tags for this image, one that should go to AWS and another to DockerHub with the tag "latest"
-    - docker tag $REPO_URL/contractor:pre-latest $REPO_URL/contractor:latest
-    - docker tag $REPO_URL/contractor:pre-latest polyswarm/contractor:latest
+    - docker tag $REPO_URL/contractor:${MANUAL_IMAGE_TAG:-$CI_COMMIT_SHA} $REPO_URL/contractor:latest
+    - docker tag $REPO_URL/contractor:${MANUAL_IMAGE_TAG:-$CI_COMMIT_SHA} polyswarm/contractor:latest
     # Pushes to AWS
     - docker push $REPO_URL/contractor:latest
     # Pushes to Docker Hub
