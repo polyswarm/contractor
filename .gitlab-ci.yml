@@ -71,10 +71,7 @@ release-latest-linux:
   tags:
     - kube
   only:
-    refs:
-      - master
-    variables:
-      - $RELEASE_LATEST == "true"
+    - master
   script:
     # Gets the current image that was built in the CI for this commit
     - docker pull $REPO_URL/contractor:${MANUAL_IMAGE_TAG:-$CI_COMMIT_SHA}
