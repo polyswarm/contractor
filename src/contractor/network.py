@@ -164,11 +164,15 @@ class Network(object):
             raise Exception('Connected to network with incorrect network id')
 
         cur_block = start_block = self.w3.eth.blockNumber
-        while cur_block < BLOCKS_TO_WAIT or cur_block - start_block < BLOCKS_TO_WAIT:
-            logger.info('Waiting for blocks to advance')
-            time.sleep(1)
-
+        
+        if self.chain == Chain.SIDECHAIN:
             cur_block = self.w3.eth.blockNumber
+        else:
+            while cur_block < BLOCKS_TO_WAIT or cur_block - start_block < BLOCKS_TO_WAIT:
+                logger.info('Waiting for blocks to advance')
+                time.sleep(1)
+
+                cur_block = self.w3.eth.blockNumber
 
         while self.w3.eth.getBlock('latest').gasLimit < self.gas_limit:
             logger.info('Waiting for block gas limit to increase to minimum')
