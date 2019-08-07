@@ -2026,44 +2026,44 @@ def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth
     assert NectarToken.functions.balanceOf(selected).call() > ARBITER_STARTING_BALANCE - stake_amount
 
 
-def test_get_number_of_bits_0(bounty_registry):
+def test_count_bits_0(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.getNumberOfBits().call(0)
+    bits = BountyRegistry.functions.countBits().call(0)
 
     assert bits == 0
 
 
-def test_get_number_of_bits_1(bounty_registry):
+def test_count_bits_1(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.getNumberOfBits().call(1)
+    bits = BountyRegistry.functions.countBits().call(1)
 
     assert bits == 1
 
 
-def test_get_number_of_bits_32_byte(bounty_registry):
+def test_count_bits_32_byte(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.getNumberOfBits().call(0xaabbccdd)
+    bits = BountyRegistry.functions.countBits().call(0xaabbccdd)
 
     assert bits == 20
 
 
-def test_get_number_of_bits_64_byte(bounty_registry):
+def test_count_bits_64_byte(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.getNumberOfBits().call(0xaabbccddeeff0011)
+    bits = BountyRegistry.functions.countBits().call(0xaabbccddeeff0011)
 
     assert bits == 36
 
 
-def test_get_number_of_bits_128_byte(bounty_registry):
+def test_count_bits_128_byte(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.getNumberOfBits().call(0xaabbccddeeff001122334455667788)
+    bits = BountyRegistry.functions.countBits().call(0xaabbccddeeff001122334455667788)
 
     assert bits == 60
 
 
-def test_get_number_of_bits_256_byte(bounty_registry):
+def test_count_bits_256_byte(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.getNumberOfBits().call(
+    bits = BountyRegistry.functions.countBits().call(
         0xaabbccddeeff001122334455667788aabbccddeeff001122334455667788
     )
 
