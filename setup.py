@@ -24,7 +24,8 @@ setup(
         "toposort==1.5",
         "tabulate==0.8.2",
         "trezor[ethereum,hidapi]==0.11.4",
-        "web3==4.9.2"
+        "web3==4.9.2",
+        "py-solc @ git+http://github.com/polyswarm/py-solc.git@feature/0-5-3",
     ],
     include_package_data=True,
     packages=find_packages('src'),
