@@ -1,27 +1,10 @@
 from setuptools import find_packages, setup
 
 
-test_dependencies = [
-        'coverage==4.5.1',
-        'eth-tester[py-evm]==0.1.0b33',
-        'pycodestyle==2.4.0',
-        'pytest==4.0.0',
-        'pytest-cov==2.6.0',
-        'pytest-xdist==1.26.1',
-    ]
-
-
 def parse_requirements():
-    result = []
     with open('requirements.txt', 'r') as f:
-        for r in f.read().splitlines():
-            if r in test_dependencies and r.startswith('git'):
-                url, name = r.split('egg=', 1)
-                result.append('{0} @ {1}'.format(name, url))
-            elif r in test_dependencies:
-                result.append(r)
-
-    return result
+        return [r if not r.startswith('git') else '{1} @ {0}'.format(*r.split('#egg=', 1))
+                for r in f.read().splitlines()]
 
 
 setup(

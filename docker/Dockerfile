@@ -21,7 +21,7 @@ WORKDIR /usr/src/app
 
 COPY requirements.txt ./
 
-RUN set -x && pip install --no-cache-dir -r requirements.txt
+RUN set -x && pip install --no-cache-dir -r requirements.txt -r requirements_test.txt
 
 COPY . .
 RUN set -x && pip install .
