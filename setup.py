@@ -18,7 +18,7 @@ def parse_requirements():
             if r in test_dependencies:
                 continue
             elif r.startswith('git'):
-                url, name = r.split('egg=')
+                url, name = r.split('egg=', 1)
                 result.append('{0} @ {1}'.format(name, url))
                 continue
 
