@@ -15,14 +15,11 @@ def parse_requirements():
     result = []
     with open('requirements.txt', 'r') as f:
         for r in f.read().splitlines():
-            if r in test_dependencies:
-                continue
-            elif r.startswith('git'):
+            if r in test_dependencies and r.startswith('git'):
                 url, name = r.split('egg=', 1)
                 result.append('{0} @ {1}'.format(name, url))
-                continue
-
-            result.append(r)
+            elif r in test_dependencies:
+                result.append(r)
 
     return result
 
