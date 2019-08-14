@@ -548,7 +548,7 @@ contract BountyRegistry is Pausable, Ownable {
         // and the sender's address prevent copying assertions by submitting the
         // same commitment hash and nonce during the reveal round
         uint256 hashed_nonce = uint256(keccak256(uint256_to_bytes(nonce)));
-        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ hashed_nonce ^ uint256(msg.sender))));
+        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ hashed_nonce ^ uint256(keccak256(bidPortion)) ^ uint256(msg.sender))));
         require(commitment == a.commitment, "Commitment hash mismatch");
 
         a.nonce = nonce;
