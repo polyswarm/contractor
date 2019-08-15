@@ -327,16 +327,13 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function countBits(uint256 value) public view returns (uint) {
         uint result = 0;
-        uint8 nibble = 0;
         uint256 modified = value;
         if (0 == value) {
             return 0;
         }
 
-
         for (uint i = 0; i < 64; i++) {
-            nibble = uint8(modified & 0xf);
-            result =  result.add(bits[nibble]);
+            result =  result.add(bits[modified & 0xf]);
             modified = modified >> 4;
         }
 
@@ -356,12 +353,16 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function getArtifactBid(uint256 mask, uint256 bid, bytes memory bidPortion, uint256 index) public view returns (uint256) {
         uint256 total = 0;
+        uint256 value = 0;
         for (uint i = 0; i < bidPortion.length; i++) {
-            total = total.add(uint8(bidPortion[i]));
+            // Add 1 to the bidPortion value. That way, 0 is a valid value that will still get a portion of the bid. (And so we can have 256/256)
+            uint256 portion = uint256(uint8(bidPortion[i])).add(1);
+            total = total.add(portion);
+            if (i == index) {
+                value = portion;
+            }
         }
-        uint portionIndex = countBits(mask << (256 - index) >> (256 - index));
-        // Add 1 to the bidPortion value. That way, 0 is a valid value that will still get a portion of the bid. (And so we can have 256/256)
-        return  bid.div(total).mul(uint256(uint8(bidPortion[portionIndex])).add(1));
+        return  bid.div(total).mul(value);
     }
 
     /**
@@ -477,10 +478,8 @@ contract BountyRegistry is Pausable, Ownable {
             ""
         );
 
-
-
         uint256 index = assertionsByGuid[bountyGuid].push(a) - 1;
-        bidPortionByGuid[bountyGuid][index] = new bytes(32);
+        bidPortionByGuid[bountyGuid].push(new bytes(32));
         uint256 numArtifacts = bountiesByGuid[bountyGuid].numArtifacts;
 
         emit NewAssertion(
@@ -510,6 +509,7 @@ contract BountyRegistry is Pausable, Ownable {
      * @param assertionId the id of the assertion to reveal
      * @param nonce the nonce used to generate the commitment hash
      * @param verdicts the verdicts making up this assertion
+     * @param bidPortion byte array with portion of the bid for each artifact with set mask (0-255)
      * @param metadata optional metadata to include in the assertion
      */
     function revealAssertion(
@@ -702,9 +702,9 @@ contract BountyRegistry is Pausable, Ownable {
             // Refund bids, fees, and distribute the bounty amount evenly to experts
             bountyRefund = bountyFee.mul(bounty.numArtifacts);
             for (j = 0; j < assertions.length; j++) {
-                expertRewards[j] = expertRewards[j].add(assertionFee);
-                expertRewards[j] = expertRewards[j].add(assertions[j].bid);
-                expertRewards[j] = expertRewards[j].add(bounty.amount.div(assertions.length));
+                expertRewards[j] = expertRewards[j].add(assertionFee)
+                    .add(assertions[j].bid)
+                    .add(bounty.amount.div(assertions.length));
             }
         } else {
             for (i = 0; i < bounty.numArtifacts; i++) {
@@ -756,8 +756,8 @@ contract BountyRegistry is Pausable, Ownable {
                         }
 
                         if (malicious == consensus) {
-                            expertRewards[j] = expertRewards[j].add(artifactBid.mul(ap.loserPool).div(ap.winnerPool));
-                            expertRewards[j] = expertRewards[j].add(bounty.amount.mul(artifactBid).div(ap.winnerPool));
+                            expertRewards[j] = expertRewards[j].add(artifactBid.mul(ap.loserPool).div(ap.winnerPool))
+                                .add(bounty.amount.mul(artifactBid).div(ap.winnerPool));
                         } else {
                             expertRewards[j] = expertRewards[j].sub(artifactBid);
                         }
