@@ -12,7 +12,7 @@ contract BountyRegistry is Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "1.3.0";
+    string public constant VERSION = "1.4.0";
 
     enum ArtifactType {FILE, URL, _END}
 
