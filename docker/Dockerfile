@@ -19,7 +19,7 @@ RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
 
 WORKDIR /usr/src/app
 
-COPY requirements*.txt ./
+COPY requirements.txt requirements_test.txt ./
 
 RUN set -x && pip install --no-cache-dir -r requirements.txt -r requirements_test.txt
 
