@@ -121,7 +121,7 @@ contract BountyRegistry is Pausable, Ownable {
     uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
     uint256 public constant VALID_HASH_PERIOD = 256; // number of blocks in the past you can still get a blockhash
 
-    uint256[] public bits = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
+    uint256[16] public bits = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
     uint256 public bountyFee;
     uint256 public assertionFee;
     address public feeManager;
@@ -525,7 +525,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
         // Check that the bounty is no longer active
-        require(bountiesByGuid[bountyGuid].expirationBlock <= block.number, "");
+        require(bountiesByGuid[bountyGuid].expirationBlock <= block.number, "Bounty is still active");
         // Check if the reveal round has closed
         require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number, "Reveal round has closed");
         // Get numArtifacts to help decode all zero verdicts
@@ -746,21 +746,21 @@ contract BountyRegistry is Pausable, Ownable {
                     for (j = 0; j < assertions.length; j++) {
                         artifactBid = getArtifactBid(assertions[j].mask, assertions[j].bid, bidPortions[j], i);
                         // Add own bid
-                        expertRewards[j] = expertRewards[j].add(artifactBid);
 
                         if (assertions[j].mask & (1 << i) > 0) {
                             malicious = assertions[j].nonce == 0
                             ? !consensus
                             : (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
                             if (malicious == consensus) {
+                                expertRewards[j] = expertRewards[j].add(artifactBid);
                                 // Take a portion of the losing bids
                                 expertRewards[j] = expertRewards[j].add(ap.loserPool.mul(artifactBid).div(ap.winnerPool));
                                 // Take a portion of the amount (for this artifact)
                                 uint256 amountCut = artifactBid.mul(bounty.amount).div(ap.winnerPool);
                                 expertRewards[j] = expertRewards[j].add(amountCut.div(bounty.numArtifacts));
-                            } else {
-                                expertRewards[j] = expertRewards[j].sub(artifactBid);
                             }
+                        } else {
+                            expertRewards[j] = expertRewards[j].add(artifactBid);
                         }
                     }
                 }
