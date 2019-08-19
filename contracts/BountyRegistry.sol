@@ -183,11 +183,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     /** Function only callable by fee manager */
     modifier onlyFeeManager() {
-        if (feeManager == address(0)) {
-            require(msg.sender == owner(), "Not a fee manager");
-        } else {
-            require(msg.sender == feeManager, "Not a fee manager");
-        }
+        require(feeManager == address(0) ? msg.sender == owner() : msg.sender == feeManager, "Not a fee manager");
         _;
     }
 
@@ -223,11 +219,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     /** Function only callable by fee manager */
     modifier onlyWindowManager() {
-        if (windowManager == address(0)) {
-            require(msg.sender == owner(), "Not a window manager");
-        } else {
-            require(msg.sender == windowManager, "Not a window manager");
-        }
+        require(windowManager == address(0) ? msg.sender == owner() : msg.sender == windowManager, "Not a window manager");
         _;
     }
 
@@ -398,7 +390,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
         // Check that artifactType int does not exceed number of values
-        require(uint(ArtifactType._END) > artifactType, "Invalid artifact type");
+        require(uint256(ArtifactType._END) > artifactType, "Invalid artifact type");
 
         // Assess fees and transfer bounty amount into escrow
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
@@ -793,16 +785,16 @@ contract BountyRegistry is Pausable, Ownable {
         Assertion[] storage assertions = assertionsByGuid[bountyGuid];
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
-        require(bounty.author != address(0), "");
+        require(bounty.author != address(0), "Bounty has not been initialized");
         // Check if this bounty has been previously resolved for the sender
-        require(!bountySettled[bountyGuid][msg.sender], "");
+        require(!bountySettled[bountyGuid][msg.sender], "Sender already settled");
         // Check that the voting round has closed
         // solium-disable-next-line indentation
         require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
             "Voting active, not quorum");
 
         if (isArbiter(msg.sender)) {
-            require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number, "");
+            require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number, "Voting round still active");
             if (bounty.assignedArbiter == address(0)) {
                 if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow).add(VALID_HASH_PERIOD) >= block.number) {
                     bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
@@ -977,7 +969,7 @@ contract BountyRegistry is Pausable, Ownable {
      * @return sorted array of most active bounty posters
      */
     function getArbiterCandidates() external view returns (address[] memory) {
-        require(bountyGuids.length > 0, "");
+        require(bountyGuids.length > 0, "No bounties have been placed");
 
         uint256 count = 0;
         uint256 i = 0;
