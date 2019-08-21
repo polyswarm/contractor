@@ -80,7 +80,7 @@ def calculate_commitment(account, verdicts, bid_portion):
     account = int(account, 16)
     commitment = sha3(int_to_bytes(verdicts ^
                                    int_from_bytes(sha3(nonce)) ^
-                                   int_from_bytes(sha3(bid_portion)) ^
+                                   int_from_bytes(sha3(bytes(bid_portion))) ^
                                    account
                                    )
                       )
