@@ -342,8 +342,8 @@ contract BountyRegistry is Pausable, Ownable {
         value = 0;
         if ((mask & (1 << index)) > 0) {
             // 256 is right here, because we want to move the value at index off the page
-            uint portionIndex = countBits(mask << (256 - index) >> (256 - index));
-            for (uint i = 0; i < bidPortion.length; i++) {
+            uint256 portionIndex = countBits(mask << (256 - index) >> (256 - index));
+            for (uint256 i = 0; i < bidPortion.length; i++) {
                 // Add 1 to the bidPortion value. That way, 0 is a valid value that will still get a portion of the bid. (And so we can have 256/256)
                 uint256 portion = uint256(uint8(bidPortion[i])).add(1);
                 total = total.add(portion);
@@ -713,7 +713,7 @@ contract BountyRegistry is Pausable, Ownable {
                                 ? !consensus
                                 : (assertions[j].verdicts & assertions[j].mask) & (1 << i) > 0;
 
-                        if (malicious == consensus) {
+                        if (malicious == consensus && artifactBid >= ASSERTION_BID_ARTIFACT_MINIMUM) {
                             ap.numWinners = ap.numWinners.add(1);
                             ap.winnerPool = ap.winnerPool.add(artifactBid);
                         } else {
@@ -743,7 +743,7 @@ contract BountyRegistry is Pausable, Ownable {
                             malicious = assertions[j].nonce == 0
                             ? !consensus
                             : (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
-                            if (malicious == consensus) {
+                            if (malicious == consensus && artifactBid >= ASSERTION_BID_ARTIFACT_MINIMUM) {
                                 expertRewards[j] = expertRewards[j].add(artifactBid);
                                 // Take a portion of the losing bids
                                 expertRewards[j] = expertRewards[j].add(ap.loserPool.mul(artifactBid).div(ap.winnerPool));
@@ -855,7 +855,7 @@ contract BountyRegistry is Pausable, Ownable {
         Vote[] memory votes = votesByGuid[bountyGuid];
         voter = address(0);
         if (votes.length > 0) {
-            uint i;
+            uint256 i;
             uint256 sum = 0;
             int256 randomNum;
 
