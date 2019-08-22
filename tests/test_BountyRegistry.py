@@ -430,7 +430,6 @@ def test_reject_assertions_with_invalid_bid(bounty_registry):
         post_assertion(bounty_registry, expert.address, 1, bid=bid, mask=[True], verdicts=[True], bid_portion=bytes([0]))
 
 
-# TODOD
 def test_accept_assertion_with_single_artifact_bid_and_mask(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
 
@@ -982,7 +981,6 @@ def test_assertion_where_bid_portion_too_small_incorrect(bounty_registry, eth_te
 
     eth_tester.mine_blocks(duration)
 
-    # Expert 0 doesn't reveal
     reveal_assertion(bounty_registry, expert0.address, guid, index0, nonce0, [True, True], bytes([0, 0]), 'foo')
     reveal_assertion(bounty_registry, expert1.address, guid, index1, nonce1, [True, True], bytes([0, 1]), 'bar')
 
@@ -2166,8 +2164,8 @@ def test_count_bits_256_byte(bounty_registry):
     bits = BountyRegistry.functions.countBits(0xaabbccddeeff001122334455667788aabbccddeeff001122334455667788).call()
 
     assert bits == 120
-#
-#
+
+
 def test_get_artifact_bid_reads_proper_bid_portion_value(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
     bid0 = BountyRegistry.functions.getArtifactBid(5, 1000, bytes([0, 30]), 0).call()
