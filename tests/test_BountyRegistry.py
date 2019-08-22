@@ -926,7 +926,6 @@ def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
     eth_tester.mine_blocks(duration)
 
     # Expert 0 doesn't reveal
-    # reveal_assertion(bounty_registry, expert0.address, guid, index0, nonce0, [False, False], bytes([0, 0]), 'bar')
     reveal_assertion(bounty_registry, expert1.address, guid, index1, nonce1, [False, True], bytes([0, 0]), 'bar')
 
     eth_tester.mine_blocks(assertion_reveal_window)
@@ -951,9 +950,75 @@ def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
         USER_STARTING_BALANCE - bid - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-        int(USER_STARTING_BALANCE + amount // 2 - assertion_fee)
+        USER_STARTING_BALANCE + amount // 2 - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
         ARBITER_STARTING_BALANCE - stake_amount + bid + amount // 2 + 2 * assertion_fee + bounty_fee
+
+
+def test_assertion_where_bid_portion_too_small_incorrect(bounty_registry, eth_tester):
+    NectarToken = bounty_registry.NectarToken
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    ambassador = BountyRegistry.ambassadors[0]
+    expert0 = BountyRegistry.experts[0]
+    expert1 = BountyRegistry.experts[1]
+    arbiters = BountyRegistry.arbiters
+    amount = 10 * 10 ** 18
+    duration = 10
+    bid = 62500000000000000 * 2
+
+    bounty_fee = BountyRegistry.functions.bountyFee().call()
+    assertion_fee = BountyRegistry.functions.assertionFee().call()
+    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    stake_amount = BountyRegistry.stake_amount
+    arbiter_vote_window = BountyRegistry.arbiter_vote_window
+
+    guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount, num_artifacts=2, duration=duration)
+
+    index0, nonce0, _ = post_assertion(bounty_registry, expert0.address, guid, bid=bid, mask=[True, True],
+                                       verdicts=[True, True], bid_portion=bytes([0, 0]))
+    index1, nonce1, _ = post_assertion(bounty_registry, expert1.address, guid, bid=bid, mask=[True, True],
+                                       verdicts=[True, True], bid_portion=bytes([0, 1]))
+
+    eth_tester.mine_blocks(duration)
+
+    # Expert 0 doesn't reveal
+    reveal_assertion(bounty_registry, expert0.address, guid, index0, nonce0, [True, True], bytes([0, 0]), 'foo')
+    reveal_assertion(bounty_registry, expert1.address, guid, index1, nonce1, [True, True], bytes([0, 1]), 'bar')
+
+    eth_tester.mine_blocks(assertion_reveal_window)
+
+    vote_on_bounty(bounty_registry, arbiters[0].address, guid, [True, True])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, True])
+    vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True, True])
+
+    eth_tester.mine_blocks(arbiter_vote_window)
+
+    settle_bounty(bounty_registry, expert0.address, guid)
+    settle_bounty(bounty_registry, expert1.address, guid)
+
+    settle_bounty(bounty_registry, arbiters[0].address, guid)
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
+    assert selected != ZERO_ADDRESS
+
+    # If we weren't the selected arbiter, call settle again with the selected one
+    if selected != arbiters[0].address:
+        settle_bounty(bounty_registry, selected, guid)
+
+    prize = amount // 2
+    assert NectarToken.functions.balanceOf(expert0.address).call() == \
+        int(USER_STARTING_BALANCE -
+            assertion_fee +
+            prize + bid // 3 +
+            prize * bid // 2 // (bid // 2 + bid * 2 // 3))
+    assert NectarToken.functions.balanceOf(expert1.address).call() == \
+        int(USER_STARTING_BALANCE -
+            assertion_fee -
+            bid // 3 - 1 +
+            prize * (bid * 2 // 3) // (bid // 2 + (bid * 2 // 3)))
+    # Extra 2 due to bid % 3 == 2
+    assert NectarToken.functions.balanceOf(selected).call() == \
+        int(ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee + 2)
 
 
 def test_only_owner_can_modify_arbiters(bounty_registry):

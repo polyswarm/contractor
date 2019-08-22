@@ -751,8 +751,6 @@ contract BountyRegistry is Pausable, Ownable {
                                 uint256 amountCut = artifactBid.mul(bounty.amount).div(ap.winnerPool);
                                 expertRewards[j] = expertRewards[j].add(amountCut.div(bounty.numArtifacts));
                             }
-                        } else {
-                            expertRewards[j] = expertRewards[j].add(artifactBid);
                         }
                     }
                 }
