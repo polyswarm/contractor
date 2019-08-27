@@ -480,20 +480,6 @@ def test_reject_assertions_from_same_user(bounty_registry):
         post_assertion(bounty_registry, expert.address, guid, mask=[True], verdicts=[True])
 
 
-def test_reject_reveal_with_changed_bid_portions(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-
-    ambassador = BountyRegistry.ambassadors[0]
-    expert = BountyRegistry.experts[0]
-    duration = 10
-
-    guid, _ = post_bounty(bounty_registry, ambassador.address, num_artifacts=1, duration=duration)
-    index, nonce, _ = post_assertion(bounty_registry, expert.address, guid, mask=[True], verdicts=[True])
-
-    with pytest.raises(TransactionFailed):
-        reveal_assertion(bounty_registry, expert.address, guid, index, nonce, [True], 'foo')
-
-
 def test_arbiter_vote_on_bounty(bounty_registry, eth_tester):
     BountyRegistry = bounty_registry.BountyRegistry
 
@@ -1694,7 +1680,7 @@ def test_lost_nothing_if_wrong_with_false_mask(bounty_registry, eth_tester):
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
-def test_bid_payout_matches_correct_verdict_bid_portion(bounty_registry, eth_tester):
+def test_bid_payout_matches_correct_verdict_bid(bounty_registry, eth_tester):
     NectarToken = bounty_registry.NectarToken
     BountyRegistry = bounty_registry.BountyRegistry
 
@@ -2101,7 +2087,7 @@ def test_count_bits_256_byte(bounty_registry):
 
     assert bits == 120
 
-def test_get_artifact_bid_reads_proper_bid_portion_value(bounty_registry):
+def test_get_artifact_bid_reads_proper_bid_values(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
     bid0 = BountyRegistry.functions.getArtifactBid(5, [1, 30], 0).call()
     bid1 = BountyRegistry.functions.getArtifactBid(5, [0, 30], 1).call()
