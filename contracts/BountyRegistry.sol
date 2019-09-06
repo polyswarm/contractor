@@ -236,19 +236,11 @@ contract BountyRegistry is Pausable, Ownable {
     /**
      * Set arbiter voting window in blocks
      *
+     * @param newAssertionRevealWindow The new assertion reveal window in blocks
      * @param newArbiterVoteWindow The new arbiter voting window in blocks
      */
-    function setArbiterVoteWindow(uint256 newArbiterVoteWindow) external onlyWindowManager {
+    function setWindows(uint256 newAssertionRevealWindow, uint256 newArbiterVoteWindow) external onlyWindowManager {
         arbiterVoteWindow = newArbiterVoteWindow;
-        emit WindowsUpdated(assertionRevealWindow, arbiterVoteWindow);
-    }
-
-    /**
-     * Set assertion reveal window in blocks
-     *
-     * @param newAssertionRevealWindow The new assertion reveal window in blocks
-     */
-    function setAssertionRevealWindow(uint256 newAssertionRevealWindow) external onlyWindowManager {
         assertionRevealWindow = newAssertionRevealWindow;
         emit WindowsUpdated(assertionRevealWindow, arbiterVoteWindow);
     }
@@ -352,6 +344,16 @@ contract BountyRegistry is Pausable, Ownable {
             uint256 bidIndex = countBits(mask << (256 - index) >> (256 - index));
             value = bid[bidIndex];
         }
+    }
+
+    /**
+     * Get the whole bid array for the given assertion
+     * @param bountyGuid the guid of the bounty asserted on
+     * @param assertionId the id of the assertion to retrieve
+     */
+    function getBids(uint128 bountyGuid, uint256 assertionId) public view returns (uint256[] memory bids) {
+        require(bountiesByGuid[bountyGuid].author != address(0) && assertionBidByGuid[bountyGuid].length >= assertionId, "Invalid bountyGuid/assertionId");
+        bids = assertionBidByGuid[bountyGuid][assertionId];
     }
 
     /**
@@ -500,7 +502,6 @@ contract BountyRegistry is Pausable, Ownable {
      * expiration
      *
      * @param bountyGuid the guid of the bounty to assert on
-     * @param assertionId the id of the assertion to reveal
      * @param assertionId the id of the assertion to reveal
      * @param nonce the nonce used to generate the commitment hash
      * @param verdicts the verdicts making up this assertion

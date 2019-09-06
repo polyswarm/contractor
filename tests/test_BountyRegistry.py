@@ -200,14 +200,13 @@ def test_should_allow_owner_to_perform_window_management_if_no_manager_set(bount
     owner = BountyRegistry.owner
     window_manager = BountyRegistry.window_manager
 
-    BountyRegistry.functions.setArbiterVoteWindow(1).transact({'from': owner})
+    BountyRegistry.functions.setWindows(1, 1).transact({'from': owner})
 
     BountyRegistry.functions.setWindowManager(window_manager.address).transact({'from': owner})
     with pytest.raises(TransactionFailed):
-        BountyRegistry.functions.setArbiterVoteWindow(2).transact({'from': owner})
+        BountyRegistry.functions.setWindows(2, 2).transact({'from': owner})
 
-    BountyRegistry.functions.setArbiterVoteWindow(3).transact({'from': window_manager.address})
-    BountyRegistry.functions.setAssertionRevealWindow(3).transact({'from': window_manager.address})
+    BountyRegistry.functions.setWindows(3, 3).transact({'from': window_manager.address})
 
 
 def test_emit_event_deprecate(bounty_registry):
@@ -2139,3 +2138,76 @@ def test_get_artifact_bid_full_255_portion(bounty_registry):
 
     choice = random.randint(0, 255)
     assert BountyRegistry.functions.getArtifactBid(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, [10] * 256, choice).call() == 10
+
+
+def test_get_bids(bounty_registry, eth_tester):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    ambassador = BountyRegistry.ambassadors[0]
+    expert = BountyRegistry.experts[0]
+    arbiter = BountyRegistry.arbiters[0]
+    duration = 10
+
+    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()
+    bid_minimum = [BountyRegistry.functions.ASSERTION_BID_ARTIFACT_MINIMUM().call()] * 2
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
+    arbiter_vote_window = BountyRegistry.arbiter_vote_window
+
+    guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount_minimum, num_artifacts=2,
+                          duration=duration)
+
+    index, nonce, _ = post_assertion(bounty_registry, expert.address, guid, bid=bid_minimum, mask=[True, True],
+                                     verdicts=[True, True])
+
+    eth_tester.mine_blocks(duration)
+
+    reveal_assertion(bounty_registry, expert.address, guid, index, nonce, [True, True], 'foo')
+
+    eth_tester.mine_blocks(assertion_reveal_window)
+
+    vote_on_bounty(bounty_registry, arbiter.address, guid, [True, True])
+
+    eth_tester.mine_blocks(arbiter_vote_window)
+
+    settle_bounty(bounty_registry, ambassador.address, guid)
+    settle_bounty(bounty_registry, expert.address, guid)
+
+    settle_bounty(bounty_registry, arbiter.address, guid)
+    selected = BountyRegistry.functions.bountiesByGuid(guid).call()[7]
+    assert selected != ZERO_ADDRESS
+
+    # If we weren't the selected arbiter, call settle again with the selected one
+    if selected != arbiter.address:
+        settle_bounty(bounty_registry, selected, guid)
+
+    assert BountyRegistry.functions.getBids(guid, 0).call() == bid_minimum
+
+
+def test_get_bids_bad_guid(bounty_registry, eth_tester):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    with pytest.raises(TransactionFailed):
+        BountyRegistry.functions.getBids(0, 0).call()
+
+
+def test_get_bids_bad_assertion(bounty_registry, eth_tester):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    ambassador = BountyRegistry.ambassadors[0]
+    expert = BountyRegistry.experts[0]
+    duration = 10
+
+    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()
+    bid_minimum = [BountyRegistry.functions.ASSERTION_BID_ARTIFACT_MINIMUM().call()] * 2
+
+    guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount_minimum, num_artifacts=2,
+                          duration=duration)
+
+    index, nonce, _ = post_assertion(bounty_registry, expert.address, guid, bid=bid_minimum, mask=[True, True],
+                                     verdicts=[True, True])
+
+    eth_tester.mine_blocks(duration)
+
+    assert BountyRegistry.functions.getBids(guid, 0).call() == bid_minimum
+    with pytest.raises(TransactionFailed):
+        BountyRegistry.functions.getBids(guid, 1).call()
