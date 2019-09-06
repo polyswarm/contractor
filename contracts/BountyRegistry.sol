@@ -115,7 +115,6 @@ contract BountyRegistry is Pausable, Ownable {
     uint256 public constant DEFAULT_ASSERTION_FEE = 31250000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
     uint256 public constant MAX_DURATION = 100; // BLOCKS
-    uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
     uint256 public constant MALICIOUS_VOTE_COEFFICIENT = 10;
     uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
     uint256 public constant VALID_HASH_PERIOD = 256; // number of blocks in the past you can still get a blockhash
@@ -153,6 +152,7 @@ contract BountyRegistry is Pausable, Ownable {
     uint256 public deprecatedBlock;
     uint256 public arbiterCount;
     uint256 public arbiterVoteWindow;
+    uint256 public assertionRevealWindow;
     uint128[] public bountyGuids;
     mapping(uint128 => Bounty) public bountiesByGuid;
     mapping(uint128 => Assertion[]) public assertionsByGuid;
@@ -171,13 +171,14 @@ contract BountyRegistry is Pausable, Ownable {
      *
      * @param _token address of NCT token to use
      */
-    constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow) Ownable() public {
+    constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow, uint256 _assertionRevealWindow) Ownable() public {
         bountyFee = DEFAULT_BOUNTY_FEE;
         assertionFee = DEFAULT_ASSERTION_FEE;
         deprecatedBlock = 0;
         token = NectarToken(_token);
         staking = ArbiterStaking(_arbiterStaking);
         arbiterVoteWindow = _arbiterVoteWindow;
+        assertionRevealWindow = _assertionRevealWindow;
     }
 
     /** Function only callable by fee manager */
@@ -239,8 +240,17 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function setArbiterVoteWindow(uint256 newArbiterVoteWindow) external onlyWindowManager {
         arbiterVoteWindow = newArbiterVoteWindow;
-        // ASSERTION_REVEAL_WINDOW is a constant but emit it here for completeness
-        emit WindowsUpdated(ASSERTION_REVEAL_WINDOW, arbiterVoteWindow);
+        emit WindowsUpdated(assertionRevealWindow, arbiterVoteWindow);
+    }
+
+    /**
+     * Set assertion reveal window in blocks
+     *
+     * @param newAssertionRevealWindow The new assertion reveal window in blocks
+     */
+    function setAssertionRevealWindow(uint256 newAssertionRevealWindow) external onlyWindowManager {
+        assertionRevealWindow = newAssertionRevealWindow;
+        emit WindowsUpdated(assertionRevealWindow, arbiterVoteWindow);
     }
 
     /** Function only callable when not deprecated */
@@ -511,7 +521,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check that the bounty is no longer active
         require(bountiesByGuid[bountyGuid].expirationBlock <= block.number, "Bounty is still active");
         // Check if the reveal round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number, "Reveal round has closed");
+        require(bountiesByGuid[bountyGuid].expirationBlock.add(assertionRevealWindow) > block.number, "Reveal round has closed");
         // Get numArtifacts to help decode all zero verdicts
         uint256 numArtifacts = bountiesByGuid[bountyGuid].numArtifacts;
 
@@ -570,9 +580,9 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if this bounty has been initialized
         require(bounty.author != address(0), "Bounty has not been initialized");
         // Check that the reveal round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) <= block.number, "Reveal round is still active");
+        require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number, "Reveal round is still active");
         // Check if the voting round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number, "Voting round has closed");
+        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Voting round has closed");
         // Check to make sure arbiters can't double vote
         require(arbiterVoteRegistryByGuid[bountyGuid][msg.sender] == false, "Arbiter has already voted");
 
@@ -657,7 +667,7 @@ contract BountyRegistry is Pausable, Ownable {
         require(!bountySettled[bountyGuid][msg.sender], "Sender has already settled");
         // Check that the voting round has closed
         // solium-disable-next-line indentation
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
+        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
             "Voting active, not quorum");
 
         expertRewards = new uint256[](assertions.length);
@@ -771,13 +781,13 @@ contract BountyRegistry is Pausable, Ownable {
         require(!bountySettled[bountyGuid][msg.sender], "Sender already settled");
         // Check that the voting round has closed
         // solium-disable-next-line indentation
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
+        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
             "Voting active, not quorum");
 
         if (isArbiter(msg.sender)) {
-            require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number, "Voting round still active");
+            require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number, "Voting round still active");
             if (bounty.assignedArbiter == address(0)) {
-                if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow).add(VALID_HASH_PERIOD) >= block.number) {
+                if (bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow).add(VALID_HASH_PERIOD) >= block.number) {
                     bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
                 } else {
                     bounty.assignedArbiter = msg.sender;
@@ -844,7 +854,7 @@ contract BountyRegistry is Pausable, Ownable {
                 sum = sum.add(staking.balanceOf(votes[i].author));
             }
 
-            randomNum = randomGen(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow), block.number, sum);
+            randomNum = randomGen(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow), block.number, sum);
 
             for (i = 0; i < votes.length; i++) {
                 randomNum -= int256(staking.balanceOf(votes[i].author));
@@ -883,9 +893,9 @@ contract BountyRegistry is Pausable, Ownable {
 
         if (bounty.expirationBlock > block.number) {
             return 0;
-        } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number) {
+        } else if (bounty.expirationBlock.add(assertionRevealWindow) > block.number) {
             return 1;
-        } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number &&
+        } else if (bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number &&
                   !bounty.quorumReached) {
             return 2;
         } else {

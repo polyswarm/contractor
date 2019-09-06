@@ -207,6 +207,7 @@ def test_should_allow_owner_to_perform_window_management_if_no_manager_set(bount
         BountyRegistry.functions.setArbiterVoteWindow(2).transact({'from': owner})
 
     BountyRegistry.functions.setArbiterVoteWindow(3).transact({'from': window_manager.address})
+    BountyRegistry.functions.setAssertionRevealWindow(3).transact({'from': window_manager.address})
 
 
 def test_emit_event_deprecate(bounty_registry):
@@ -362,7 +363,7 @@ def test_bounty_round_reporting(bounty_registry, eth_tester):
     arbiters = BountyRegistry.arbiters
     duration = 10
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, num_artifacts=2, duration=duration)
@@ -489,7 +490,7 @@ def test_arbiter_vote_on_bounty(bounty_registry, eth_tester):
     arbiters = BountyRegistry.arbiters
     duration = 10
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, num_artifacts=1, duration=duration)
     post_assertion(bounty_registry, expert0.address, guid, mask=[True], verdicts=[False])
@@ -513,7 +514,7 @@ def test_arbiter_settle_before_voting_ends(bounty_registry, eth_tester):
     arbiter = BountyRegistry.arbiters[0]
     duration = 10
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, num_artifacts=1, duration=duration)
 
@@ -553,7 +554,7 @@ def test_arbiter_settle_after_voting_ends(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -604,7 +605,7 @@ def test_should_allow_voting_after_quorum_reached(bounty_registry, eth_tester):
     arbiters = BountyRegistry.arbiters
     duration = 10
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, num_artifacts=1, duration=duration)
 
@@ -626,7 +627,7 @@ def test_rejects_arbiter_settles_before_voting_ends(bounty_registry, eth_tester)
     arbiter = BountyRegistry.arbiters[0]
     duration = 10
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, num_artifacts=2, duration=duration)
 
@@ -663,7 +664,7 @@ def test_settle_multi_artifact_bounty(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -720,7 +721,7 @@ def test_any_arbiter_settle_after_256_blocks(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -778,7 +779,7 @@ def test_reach_quorum_if_all_vote_malicious_first(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -836,7 +837,7 @@ def test_reach_quorum_if_all_vote_malicious_second(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -894,7 +895,7 @@ def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -988,7 +989,7 @@ def test_should_allow_removing_and_reading_arbiters(bounty_registry, eth_tester)
     arbiter = BountyRegistry.arbiters[0]
     duration = 10
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
 
     BountyRegistry.functions.removeArbiter(arbiter.address, network.block_number()).transact({'from': owner})
     BountyRegistry.functions.addArbiter(arbiter.address, network.block_number()).transact({'from': owner})
@@ -1025,7 +1026,7 @@ def test_should_refund_bounty_amount_and_fee_to_ambassador_if_no_assertions_or_v
     ambassador = BountyRegistry.ambassadors[0]
     duration = 10
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, duration=duration)
@@ -1047,7 +1048,7 @@ def test_should_refund_bounty_amount_to_ambassador_if_no_assertions(bounty_regis
     duration = 10
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1083,7 +1084,7 @@ def test_should_refund_bounty_fee_to_ambassador_if_no_votes(bounty_registry, eth
     duration = 10
     amount = 10 * 10 ** 18
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount, duration=duration)
@@ -1120,7 +1121,7 @@ def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_some_
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1174,7 +1175,7 @@ def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_any_a
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1225,7 +1226,7 @@ def test_payout_fee_bid_amount_to_one_expert_if_no_votes(bounty_registry, eth_te
     duration = 10
     bid = [10 * 10 ** 18] * 2
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount, num_artifacts=2, duration=duration)
@@ -1258,7 +1259,7 @@ def test_payout_fee_bid_amount_to_two_experts_if_no_votes(bounty_registry, eth_t
     duration = 10
     bid = [10 * 10 ** 18] * 2
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount, num_artifacts=2, duration=duration)
@@ -1300,7 +1301,7 @@ def test_lose_bid_if_no_reveal(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1352,7 +1353,7 @@ def test_payout_bid_to_expert_if_mask_zero(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1403,7 +1404,7 @@ def test_payout_half_amount_lose_half_bid_when_half_right_half_wrong_one_expert(
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1454,7 +1455,7 @@ def test_payout_half_amount_lose_half_bid_when_half_right_half_wrong_two_experts
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1511,7 +1512,7 @@ def test_payout_when_two_experts_have_differing_incorrect_verdicts(bounty_regist
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1569,7 +1570,7 @@ def test_should_payout_amount_relative_to_bid_proportion(bounty_registry, eth_te
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1637,7 +1638,7 @@ def test_lost_nothing_if_wrong_with_false_mask(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1695,7 +1696,7 @@ def test_bid_payout_matches_correct_verdict_bid(bounty_registry, eth_tester):
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1755,7 +1756,7 @@ def test_no_arbiter_payout_if_no_votes(bounty_registry, eth_tester):
     duration = 10
     bid = [10 * 10 ** 18] * 2
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1793,7 +1794,7 @@ def test_no_arbiter_payout_if_no_assertions_and_no_votes(bounty_registry, eth_te
     amount = 10 * 10 ** 18
     duration = 10
 
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1820,7 +1821,7 @@ def test_payout_bounty_fee_to_arbiter_if_no_votes(bounty_registry, eth_tester):
     duration = 10
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1860,7 +1861,7 @@ def test_payout_bounty_fee_and_assertion_fees_to_arbiter(bounty_registry, eth_te
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1911,7 +1912,7 @@ def test_payout_all_to_arbiter_if_every_expert_wrong(bounty_registry, eth_tester
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -1959,7 +1960,7 @@ def test_payout_so_arbiter_one_expert_profit_using_minimums(bounty_registry, eth
 
     amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()
     bid_minimum = [BountyRegistry.functions.ASSERTION_BID_ARTIFACT_MINIMUM().call()] * 2
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -2006,7 +2007,7 @@ def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth
 
     amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()
     bid_minimum = [BountyRegistry.functions.ASSERTION_BID_ARTIFACT_MINIMUM().call()] * 2
-    assertion_reveal_window = BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call()
+    assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
@@ -2086,6 +2087,7 @@ def test_count_bits_256_byte(bounty_registry):
     bits = BountyRegistry.functions.countBits(0xaabbccddeeff001122334455667788aabbccddeeff001122334455667788).call()
 
     assert bits == 120
+
 
 def test_get_artifact_bid_reads_proper_bid_values(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry

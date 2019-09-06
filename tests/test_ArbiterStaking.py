@@ -184,7 +184,7 @@ def test_allow_withdrawals_after_deprecation(arbiter_long_staking, eth_tester):
     BountyRegistry.functions.deprecate().transact({'from': BountyRegistry.owner})
 
     eth_tester.mine_blocks(BountyRegistry.functions.MAX_DURATION().call())
-    eth_tester.mine_blocks(BountyRegistry.functions.ASSERTION_REVEAL_WINDOW().call())
+    eth_tester.mine_blocks(BountyRegistry.functions.assertionRevealWindow().call())
     eth_tester.mine_blocks(BountyRegistry.functions.arbiterVoteWindow().call())
 
     assert ArbiterStaking.functions.balanceOf(ArbiterStaking.arbiter.address).call() == 1
