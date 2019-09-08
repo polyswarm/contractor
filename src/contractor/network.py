@@ -165,9 +165,11 @@ class Network(object):
 
         cur_block = start_block = self.w3.eth.blockNumber
         
-        if self.chain == Chain.SIDECHAIN:
-            cur_block = self.w3.eth.blockNumber
-        else:
+        # Get ethereum client info
+        #   e.g.: Parity-Ethereum//v2.5.5-stable-3ebc769-20190708/x86_64-linux-gnu/rustc1.36.0
+        ethereum_client = self.w3.version.node
+        
+        if not (self.chain == Chain.SIDECHAIN and 'Parity-Ethereum' in ethereum_client):
             while cur_block < BLOCKS_TO_WAIT or cur_block - start_block < BLOCKS_TO_WAIT:
                 logger.info('Waiting for blocks to advance')
                 time.sleep(1)
