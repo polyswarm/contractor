@@ -247,7 +247,7 @@ contract ArbiterStaking is Pausable, Ownable {
      * @return true if deprecated block is set and beyond max blocks for a
      */
     function isDeprecated() public view returns (bool) {
-        uint256 longest = registry.MAX_DURATION().add(registry.ASSERTION_REVEAL_WINDOW()).add(registry.arbiterVoteWindow());
+        uint256 longest = registry.MAX_DURATION().add(registry.assertionRevealWindow()).add(registry.arbiterVoteWindow());
         return registry.deprecatedBlock() > 0 && block.number >= registry.deprecatedBlock().add(longest);
     }
 

@@ -12,7 +12,7 @@ contract BountyRegistry is Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "1.3.0";
+    string public constant VERSION = "1.4.0";
 
     enum ArtifactType {FILE, URL, _END}
 
@@ -33,7 +33,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     struct Assertion {
         address author;
-        uint256 bid;
+        uint256[] bid;
         uint256 mask;
         uint256 commitment;
         uint256 nonce;
@@ -71,7 +71,7 @@ contract BountyRegistry is Pausable, Ownable {
         uint128 bountyGuid,
         address author,
         uint256 index,
-        uint256 bid,
+        uint256[] bid,
         uint256 mask,
         uint256 numArtifacts,
         uint256 commitment
@@ -107,18 +107,19 @@ contract BountyRegistry is Pausable, Ownable {
     ArbiterStaking public staking;
     NectarToken internal token;
 
+
+
     uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
-    uint256 public constant ASSERTION_BID_MINIMUM = 62500000000000000;
+    uint256 public constant ASSERTION_BID_ARTIFACT_MINIMUM = 62500000000000000;
     uint256 public constant DEFAULT_BOUNTY_FEE = 62500000000000000;
     uint256 public constant DEFAULT_ASSERTION_FEE = 31250000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
     uint256 public constant MAX_DURATION = 100; // BLOCKS
-    uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
     uint256 public constant MALICIOUS_VOTE_COEFFICIENT = 10;
     uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
     uint256 public constant VALID_HASH_PERIOD = 256; // number of blocks in the past you can still get a blockhash
 
-
+    uint256[16] public bits = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
     uint256 public bountyFee;
     uint256 public assertionFee;
     address public feeManager;
@@ -151,9 +152,11 @@ contract BountyRegistry is Pausable, Ownable {
     uint256 public deprecatedBlock;
     uint256 public arbiterCount;
     uint256 public arbiterVoteWindow;
+    uint256 public assertionRevealWindow;
     uint128[] public bountyGuids;
     mapping(uint128 => Bounty) public bountiesByGuid;
     mapping(uint128 => Assertion[]) public assertionsByGuid;
+    mapping(uint128 => uint256[][]) public assertionBidByGuid;
     mapping(uint128 => Vote[]) public votesByGuid;
     mapping(uint128 => uint256[8]) public bloomByGuid;
     mapping(uint128 => mapping(uint256 => uint256)) public quorumVotesByGuid;
@@ -168,23 +171,19 @@ contract BountyRegistry is Pausable, Ownable {
      *
      * @param _token address of NCT token to use
      */
-    constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow) Ownable() public {
+    constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow, uint256 _assertionRevealWindow) Ownable() public {
         bountyFee = DEFAULT_BOUNTY_FEE;
         assertionFee = DEFAULT_ASSERTION_FEE;
-
         deprecatedBlock = 0;
         token = NectarToken(_token);
         staking = ArbiterStaking(_arbiterStaking);
         arbiterVoteWindow = _arbiterVoteWindow;
+        assertionRevealWindow = _assertionRevealWindow;
     }
 
     /** Function only callable by fee manager */
     modifier onlyFeeManager() {
-        if (feeManager == address(0)) {
-            require(msg.sender == owner(), "Not a fee manager");
-        } else {
-            require(msg.sender == feeManager, "Not a fee manager");
-        }
+        require(feeManager == address(0) ? msg.sender == owner() : msg.sender == feeManager, "Not a fee manager");
         _;
     }
 
@@ -220,11 +219,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     /** Function only callable by fee manager */
     modifier onlyWindowManager() {
-        if (windowManager == address(0)) {
-            require(msg.sender == owner(), "Not a window manager");
-        } else {
-            require(msg.sender == windowManager, "Not a window manager");
-        }
+        require(windowManager == address(0) ? msg.sender == owner() : msg.sender == windowManager, "Not a window manager");
         _;
     }
 
@@ -241,12 +236,13 @@ contract BountyRegistry is Pausable, Ownable {
     /**
      * Set arbiter voting window in blocks
      *
+     * @param newAssertionRevealWindow The new assertion reveal window in blocks
      * @param newArbiterVoteWindow The new arbiter voting window in blocks
      */
-    function setArbiterVoteWindow(uint256 newArbiterVoteWindow) external onlyWindowManager {
+    function setWindows(uint256 newAssertionRevealWindow, uint256 newArbiterVoteWindow) external onlyWindowManager {
         arbiterVoteWindow = newArbiterVoteWindow;
-        // ASSERTION_REVEAL_WINDOW is a constant but emit it here for completeness
-        emit WindowsUpdated(ASSERTION_REVEAL_WINDOW, arbiterVoteWindow);
+        assertionRevealWindow = newAssertionRevealWindow;
+        emit WindowsUpdated(assertionRevealWindow, arbiterVoteWindow);
     }
 
     /** Function only callable when not deprecated */
@@ -316,6 +312,51 @@ contract BountyRegistry is Pausable, Ownable {
     }
 
     /**
+     * Get the number of 1 bits in a uint256
+     * @param value some uint256 to count
+     * @return number of set bits in the given value
+     */
+    function countBits(uint256 value) public view returns (uint256 result) {
+        result = 0;
+        uint256 modified = value;
+        if (value != 0) {
+            for (uint256 i = 0; i < 64; i++) {
+                result =  result.add(bits[modified & 0xf]);
+                modified = modified >> 4;
+            }
+        }
+    }
+
+    /**
+     * Get the bid value for the artifact at the given index of the bounty.
+     * Uses the bid portion array, and mask to compute the correct index to read from.
+     *
+     * @param mask Mask of artifacts that have a bid
+     * @param bid Array of bids for each artifact that matches with a set mask
+     * @param index Index for the artifact in the verdicts/mask array
+     * @return uin256 that represents the bid for a specific artifact
+
+     */
+    function getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) public view returns (uint256 value) {
+        value = 0;
+        if ((mask & (1 << index)) > 0) {
+            // 256 is right here, because we want to move the value at index off the page
+            uint256 bidIndex = countBits(mask << (256 - index) >> (256 - index));
+            value = bid[bidIndex];
+        }
+    }
+
+    /**
+     * Get the whole bid array for the given assertion
+     * @param bountyGuid the guid of the bounty asserted on
+     * @param assertionId the id of the assertion to retrieve
+     */
+    function getBids(uint128 bountyGuid, uint256 assertionId) public view returns (uint256[] memory bids) {
+        require(bountiesByGuid[bountyGuid].author != address(0) && assertionBidByGuid[bountyGuid].length >= assertionId, "Invalid bountyGuid/assertionId");
+        bids = assertionBidByGuid[bountyGuid][assertionId];
+    }
+
+    /**
      * Function called by end users and ambassadors to post a bounty
      *
      * @param guid the guid of the bounty, must be unique
@@ -349,7 +390,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
         // Check that artifactType int does not exceed number of values
-        require(uint(ArtifactType._END) > artifactType, "Invalid artifact type");
+        require(uint256(ArtifactType._END) > artifactType, "Invalid artifact type");
 
         // Assess fees and transfer bounty amount into escrow
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
@@ -389,14 +430,14 @@ contract BountyRegistry is Pausable, Ownable {
      * Function called by security experts to post an assertion on a bounty
      *
      * @param bountyGuid the guid of the bounty to assert on
-     * @param bid the amount of NCT to stake
+     * @param bid array of amounts of NCT to bid on an artifact
      * @param mask the artifacts to assert on from the set in the bounty
      * @param commitment a commitment hash of the verdicts being asserted, equal
      *      to keccak256(verdicts ^ keccak256(nonce)) where nonce != 0
      */
     function postAssertion(
         uint128 bountyGuid,
-        uint256 bid,
+        uint256[] calldata bid,
         uint256 mask,
         uint256 commitment
     )
@@ -406,13 +447,21 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
         // Check that our bid amount is sufficient
-        require(bid >= ASSERTION_BID_MINIMUM, "Assertion bid below minimum");
+        // Check if bid meets minimum value
+        require(bid.length == countBits(mask), "Bid count does not match mask count");
         // Check if this bounty is active
         require(bountiesByGuid[bountyGuid].expirationBlock > block.number, "Bounty inactive");
         // Check if the sender has already made an assertion
         require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
+
+        uint256 bid_sum = 0;
+        for (uint i =0; i < bid.length; i++) {
+            require(bid[i] >= ASSERTION_BID_ARTIFACT_MINIMUM, "Assertion bid below minimum");
+            bid_sum = bid_sum.add(bid[i]);
+        }
+
         // Assess fees and transfer bid amount into escrow
-        token.safeTransferFrom(msg.sender, address(this), bid.add(assertionFee));
+        token.safeTransferFrom(msg.sender, address(this), bid_sum.add(assertionFee));
 
         expertAssertionRegistryByGuid[bountyGuid][msg.sender] = true;
 
@@ -427,13 +476,14 @@ contract BountyRegistry is Pausable, Ownable {
         );
 
         uint256 index = assertionsByGuid[bountyGuid].push(a) - 1;
+        assertionBidByGuid[bountyGuid].push(bid);
         uint256 numArtifacts = bountiesByGuid[bountyGuid].numArtifacts;
 
         emit NewAssertion(
             bountyGuid,
             a.author,
             index,
-            a.bid,
+            bid,
             a.mask,
             numArtifacts,
             a.commitment
@@ -452,7 +502,6 @@ contract BountyRegistry is Pausable, Ownable {
      * expiration
      *
      * @param bountyGuid the guid of the bounty to assert on
-     * @param assertionId the id of the assertion to reveal
      * @param assertionId the id of the assertion to reveal
      * @param nonce the nonce used to generate the commitment hash
      * @param verdicts the verdicts making up this assertion
@@ -473,7 +522,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check that the bounty is no longer active
         require(bountiesByGuid[bountyGuid].expirationBlock <= block.number, "Bounty is still active");
         // Check if the reveal round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number, "Reveal round has closed");
+        require(bountiesByGuid[bountyGuid].expirationBlock.add(assertionRevealWindow) > block.number, "Reveal round has closed");
         // Get numArtifacts to help decode all zero verdicts
         uint256 numArtifacts = bountiesByGuid[bountyGuid].numArtifacts;
 
@@ -532,9 +581,9 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if this bounty has been initialized
         require(bounty.author != address(0), "Bounty has not been initialized");
         // Check that the reveal round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) <= block.number, "Reveal round is still active");
+        require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number, "Reveal round is still active");
         // Check if the voting round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number, "Voting round has closed");
+        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Voting round has closed");
         // Check to make sure arbiters can't double vote
         require(arbiterVoteRegistryByGuid[bountyGuid][msg.sender] == false, "Arbiter has already voted");
 
@@ -552,7 +601,6 @@ contract BountyRegistry is Pausable, Ownable {
         uint256 quorumCount = 0;
         mapping (uint256 => uint256) storage quorumVotes = quorumVotesByGuid[bountyGuid];
         for (uint256 i = 0; i < bounty.numArtifacts; i++) {
-
             if (bounty.quorumMask != 0 && (bounty.quorumMask & (1 << i) != 0)) {
                 tempQuorumMask = tempQuorumMask.add(calculateMask(i, 1));
                 quorumCount = quorumCount.add(1);
@@ -610,39 +658,43 @@ contract BountyRegistry is Pausable, Ownable {
     {
         Bounty storage bounty = bountiesByGuid[bountyGuid];
         Assertion[] storage assertions = assertionsByGuid[bountyGuid];
+        uint256[][] storage assertionBids = assertionBidByGuid[bountyGuid];
         Vote[] storage votes = votesByGuid[bountyGuid];
         mapping (uint256 => uint256) storage quorumVotes = quorumVotesByGuid[bountyGuid];
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
         require(bounty.author != address(0), "Bounty has not been initialized");
         // Check if this bounty has been previously resolved for the sender
-        require(!bountySettled[bountyGuid][msg.sender], "Bounty has already been settled for sender");
+        require(!bountySettled[bountyGuid][msg.sender], "Sender has already settled");
         // Check that the voting round has closed
         // solium-disable-next-line indentation
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
-            "Voting round is still active and quorum has not been reached");
+        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
+            "Voting active, not quorum");
 
         expertRewards = new uint256[](assertions.length);
+        bountyRefund = 0;
 
         ArtifactPot memory ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
+        uint256 artifactBid = 0;
 
         uint256 i = 0;
         uint256 j = 0;
 
         if (assertions.length == 0 && votes.length == 0) {
             // Refund the bounty amount and fees to ambassador
-            bountyRefund = bounty.numArtifacts.mul(bounty.amount.add(bountyFee));
+            bountyRefund = bounty.amount.add(bountyFee);
         } else if (assertions.length == 0) {
             // Refund the bounty amount ambassador
-            bountyRefund = bounty.amount.mul(bounty.numArtifacts);
+            bountyRefund = bounty.amount;
         } else if (votes.length == 0) {
             // Refund bids, fees, and distribute the bounty amount evenly to experts
-            bountyRefund = bountyFee.mul(bounty.numArtifacts);
+            bountyRefund = bountyFee;
             for (j = 0; j < assertions.length; j++) {
-                expertRewards[j] = expertRewards[j].add(assertionFee);
-                expertRewards[j] = expertRewards[j].add(assertions[j].bid);
-                expertRewards[j] = expertRewards[j].add(bounty.amount.div(assertions.length));
-                expertRewards[j] = expertRewards[j].mul(bounty.numArtifacts);
+                expertRewards[j] = expertRewards[j].add(assertionFee)
+                                  .add(bounty.amount.div(assertions.length));
+                for (i = 0; i < assertionBids[j].length; i++) {
+                        expertRewards[j] = expertRewards[j].add(assertionBids[j][i]);
+                }
             }
         } else {
             for (i = 0; i < bounty.numArtifacts; i++) {
@@ -651,55 +703,45 @@ contract BountyRegistry is Pausable, Ownable {
                 bool malicious;
 
                 for (j = 0; j < assertions.length; j++) {
+                    artifactBid = getArtifactBid(assertions[j].mask, assertionBids[j], i);
+                    if (assertions[j].mask & (1 << i) > 0) {
+                        // If we haven't revealed set to incorrect value
+                        malicious = assertions[j].nonce == 0
+                                ? !consensus
+                                : (assertions[j].verdicts & assertions[j].mask) & (1 << i) > 0;
 
-                    // If we didn't assert on this artifact
-                    if (assertions[j].mask & (1 << i) == 0) {
-                        continue;
-                    }
-
-                    // If we haven't revealed set to incorrect value
-                    if (assertions[j].nonce == 0) {
-                        malicious = !consensus;
-                    } else {
-                        malicious = (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
-                    }
-
-                    if (malicious == consensus) {
-                        ap.numWinners = ap.numWinners.add(1);
-                        ap.winnerPool = ap.winnerPool.add(assertions[j].bid);
-                    } else {
-                        ap.numLosers = ap.numLosers.add(1);
-                        ap.loserPool = ap.loserPool.add(assertions[j].bid);
+                        if (malicious == consensus) {
+                            ap.numWinners = ap.numWinners.add(1);
+                            ap.winnerPool = ap.winnerPool.add(artifactBid);
+                        } else {
+                            ap.numLosers = ap.numLosers.add(1);
+                            ap.loserPool = ap.loserPool.add(artifactBid);
+                        }
                     }
                 }
 
                 // If nobody asserted on this artifact, refund the ambassador
                 if (ap.numWinners == 0 && ap.numLosers == 0) {
-                    bountyRefund = bountyRefund.add(bounty.amount);
+                    bountyRefund = bountyRefund.add(bounty.amount.div(bounty.numArtifacts));
                     for (j = 0; j < assertions.length; j++) {
-                        expertRewards[j] = expertRewards[j].add(assertions[j].bid);
+                        artifactBid = getArtifactBid(assertions[j].mask, assertionBids[j], i);
+                        expertRewards[j] = expertRewards[j].add(artifactBid);
                     }
                 } else {
                     for (j = 0; j < assertions.length; j++) {
-                        expertRewards[j] = expertRewards[j].add(assertions[j].bid);
-
-                        // If we didn't assert on this artifact
-                        if (assertions[j].mask & (1 << i) == 0) {
-                            continue;
-                        }
-
-                        // If we haven't revealed set to incorrect value
-                        if (assertions[j].nonce == 0) {
-                            malicious = !consensus;
-                        } else {
-                            malicious = (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
-                        }
-
-                        if (malicious == consensus) {
-                            expertRewards[j] = expertRewards[j].add(assertions[j].bid.mul(ap.loserPool).div(ap.winnerPool));
-                            expertRewards[j] = expertRewards[j].add(bounty.amount.mul(assertions[j].bid).div(ap.winnerPool));
-                        } else {
-                            expertRewards[j] = expertRewards[j].sub(assertions[j].bid);
+                        artifactBid = getArtifactBid(assertions[j].mask, assertionBids[j], i);
+                        if (assertions[j].mask & (1 << i) > 0) {
+                            malicious = assertions[j].nonce == 0
+                            ? !consensus
+                            : (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
+                            if (malicious == consensus) {
+                                expertRewards[j] = expertRewards[j].add(artifactBid);
+                                // Take a portion of the losing bids
+                                expertRewards[j] = expertRewards[j].add(artifactBid.mul(ap.loserPool).div(ap.winnerPool));
+                                // Take a portion of the amount (for this artifact)
+                                uint256 amountCut = artifactBid.mul(bounty.amount).div(ap.winnerPool);
+                                expertRewards[j] = expertRewards[j].add(amountCut.div(bounty.numArtifacts));
+                            }
                         }
                     }
                 }
@@ -709,14 +751,15 @@ contract BountyRegistry is Pausable, Ownable {
         // Calculate rewards
         uint256 pot = bounty.amount.add(bountyFee.add(assertionFee.mul(assertions.length)));
         for (i = 0; i < assertions.length; i++) {
-            pot = pot.add(assertions[i].bid);
+            uint256 bid = 0;
+            for (j = 0; j < assertionBids[i].length; j++) {
+                pot = pot.add(assertionBids[i][j]);
+            }
         }
 
-        bountyRefund = bountyRefund.div(bounty.numArtifacts);
         pot = pot.sub(bountyRefund);
 
         for (i = 0; i < assertions.length; i++) {
-            expertRewards[i] = expertRewards[i].div(bounty.numArtifacts);
             pot = pot.sub(expertRewards[i]);
         }
 
@@ -736,16 +779,16 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if this bountiesByGuid[bountyGuid] has been initialized
         require(bounty.author != address(0), "Bounty has not been initialized");
         // Check if this bounty has been previously resolved for the sender
-        require(!bountySettled[bountyGuid][msg.sender], "Bounty has already been settled for sender");
+        require(!bountySettled[bountyGuid][msg.sender], "Sender already settled");
         // Check that the voting round has closed
         // solium-disable-next-line indentation
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
-            "Voting round is still active and quorum has not been reached");
+        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
+            "Voting active, not quorum");
 
         if (isArbiter(msg.sender)) {
-            require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number, "Voting round still active");
+            require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number, "Voting round still active");
             if (bounty.assignedArbiter == address(0)) {
-                if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow).add(VALID_HASH_PERIOD) >= block.number) {
+                if (bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow).add(VALID_HASH_PERIOD) >= block.number) {
                     bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
                 } else {
                     bounty.assignedArbiter = msg.sender;
@@ -788,7 +831,7 @@ contract BountyRegistry is Pausable, Ownable {
      *  @param seed random number for reproducing
      *  @param range end range for random number
      */
-    function randomGen(uint256 targetBlock, uint seed, uint256 range) private view returns (int256 randomNumber) {
+    function randomGen(uint256 targetBlock, uint seed, uint256 range) private view returns (int256) {
         return int256(uint256(keccak256(abi.encodePacked(blockhash(targetBlock), seed))) % range);
     }
 
@@ -802,37 +845,34 @@ contract BountyRegistry is Pausable, Ownable {
 
         Bounty memory bounty = bountiesByGuid[bountyGuid];
         Vote[] memory votes = votesByGuid[bountyGuid];
+        voter = address(0);
+        if (votes.length > 0) {
+            uint256 i;
+            uint256 sum = 0;
+            int256 randomNum;
 
-        if (votes.length == 0) {
-            return address(0);
-        }
+            for (i = 0; i < votes.length; i++) {
+                sum = sum.add(staking.balanceOf(votes[i].author));
+            }
 
-        uint i;
-        uint256 sum = 0;
-        int256 randomNum;
+            randomNum = randomGen(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow), block.number, sum);
 
-        for (i = 0; i < votes.length; i++) {
-            sum = sum.add(staking.balanceOf(votes[i].author));
-        }
+            for (i = 0; i < votes.length; i++) {
+                randomNum -= int256(staking.balanceOf(votes[i].author));
 
-        randomNum = randomGen(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow), block.number, sum);
-
-        for (i = 0; i < votes.length; i++) {
-            randomNum -= int256(staking.balanceOf(votes[i].author));
-
-            if (randomNum <= 0) {
-                voter = votes[i].author;
-                break;
+                if (randomNum <= 0) {
+                    voter = votes[i].author;
+                    break;
+                }
             }
         }
-
     }
 
     /**
      * Get the total number of bounties tracked by the contract
      * @return total number of bounties
      */
-    function getNumberOfBounties() external view returns (uint) {
+    function getNumberOfBounties() external view returns (uint256) {
         return bountyGuids.length;
     }
 
@@ -846,7 +886,7 @@ contract BountyRegistry is Pausable, Ownable {
      *      2 = arbiters voting
      *      3 = bounty finished
      */
-    function getCurrentRound(uint128 bountyGuid) external view returns (uint) {
+    function getCurrentRound(uint128 bountyGuid) external view returns (uint256) {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
 
@@ -854,9 +894,9 @@ contract BountyRegistry is Pausable, Ownable {
 
         if (bounty.expirationBlock > block.number) {
             return 0;
-        } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number) {
+        } else if (bounty.expirationBlock.add(assertionRevealWindow) > block.number) {
             return 1;
-        } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number &&
+        } else if (bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number &&
                   !bounty.quorumReached) {
             return 2;
         } else {
@@ -882,7 +922,7 @@ contract BountyRegistry is Pausable, Ownable {
      *
      * @param bountyGuid the guid of the bounty
      */
-    function getNumberOfVotes(uint128 bountyGuid) external view returns (uint) {
+    function getNumberOfVotes(uint128 bountyGuid) external view returns (uint256) {
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
 
         return votesByGuid[bountyGuid].length;
@@ -1043,18 +1083,12 @@ contract BountyRegistry is Pausable, Ownable {
             }
 
             ret_addr[i] = candidates[next].addr;
-            if (candidates[next].count.div(10).mul(9) < threshold) {
-                ret_arbiter_ativity_threshold[i] = false;
-            } else {
-                ret_arbiter_ativity_threshold[i] = true;
-            }
+            ret_arbiter_ativity_threshold[i] = candidates[next].count.div(10).mul(9) >= threshold;
 
             count = count.sub(1);
             candidates[next] = candidates[count];
         }
 
         return (ret_addr, ret_arbiter_ativity_threshold);
-
     }
-
 }

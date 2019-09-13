@@ -26,9 +26,14 @@ class BountyRegistry(Step):
 
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         arbiter_vote_window = contract_config.get('arbiter_vote_window', 100)
+        assertion_reveal_window = contract_config.get('assertion_reveal_window', 10)
         arbiters = [network.normalize_address(a) for a in contract_config.get('arbiters', [])]
 
-        contract = deployer.deploy(CONTRACT_NAME, nectar_token_address, arbiter_staking_address, arbiter_vote_window)
+        contract = deployer.deploy(CONTRACT_NAME,
+                                   nectar_token_address,
+                                   arbiter_staking_address,
+                                   arbiter_vote_window,
+                                   assertion_reveal_window)
 
         logger.info('Setting ArbiterStaking\'s BountyRegistry instance to %s', contract.address)
         txhash = deployer.transact(deployer.contracts['ArbiterStaking'].functions.setBountyRegistry(contract.address))
