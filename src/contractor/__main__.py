@@ -44,9 +44,11 @@ def install_solc(ctx, solc_version):
               help='Directory to store the compiled json output for later deployment')
 @click.option('-e', '--external', type=click.Path(exists=True, file_okay=False), default='external',
               help='Directory containing any external libraries used')
+@click.option('-r', '--optimizer-runs', type=click.INT, default=200,
+              help='How many runs to use for the optimizer')
 @click.pass_context
-def compile(ctx, solc_version, srcdir, outdir, external):
-    is_dirty = compile_directory(solc_version, srcdir, outdir, external)
+def compile(ctx, solc_version, srcdir, outdir, external, optimizer_runs):
+    is_dirty = compile_directory(solc_version, srcdir, outdir, external, optimizer_runs=optimizer_runs)
 
     # If there are no contract changes, exit with failure to signal to not attempt a redeploy
     if not is_dirty:

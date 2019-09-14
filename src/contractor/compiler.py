@@ -9,7 +9,7 @@ DEFAULT_SOLC_VERSION = 'v0.5.3'
 logger = logging.getLogger(__name__)
 
 
-def __compiler_input_from_directory(src_dir, ext_dir=None):
+def __compiler_input_from_directory(src_dir, ext_dir=None, optimizer_runs=200):
     """Generate input JSON for solc given directories of contracts to compile.
 
     :param src_dir: Directory containing contract Solidity source
@@ -38,7 +38,7 @@ def __compiler_input_from_directory(src_dir, ext_dir=None):
         'settings': {
             'optimizer': {
                 'enabled': True,
-                'runs': 200,
+                'runs': optimizer_runs,
             },
             'outputSelection': {
                 '*': {
@@ -111,13 +111,14 @@ def configure_compiler(solc_version):
     return solc_path
 
 
-def compile_directory(solc_version, src_dir, out_dir, ext_dir=None):
+def compile_directory(solc_version, src_dir, out_dir, ext_dir=None, optimizer_runs=200):
     """Compile a directory of contracts into output JSON.
 
     :param solc_version: Version of solc to use
     :param src_dir: Directory containing contract Solidity source
     :param out_dir: Directory to output compiled JSON into
     :param ext_dir: Directory containing external dependencies
+    :param optimizer_runs: Number of runs to put the contract through the optimizer
     :return: True if contracts have changed, else False
     """
     configure_compiler(solc_version)
@@ -126,7 +127,7 @@ def compile_directory(solc_version, src_dir, out_dir, ext_dir=None):
     if ext_dir:
         kwargs['allow_paths'] = os.path.abspath(ext_dir)
 
-    input = __compiler_input_from_directory(src_dir, ext_dir)
+    input = __compiler_input_from_directory(src_dir, ext_dir=ext_dir, optimizer_runs=optimizer_runs)
     source_files = input['sources'].keys()
     output = compile_standard(input, **kwargs)
     # TODO: Compilation errors will be reported via a SolcError, should report these in a friendlier manner
