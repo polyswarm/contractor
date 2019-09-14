@@ -183,7 +183,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     /** Function only callable by fee manager */
     modifier onlyFeeManager() {
-        require(feeManager == address(0) ? msg.sender == owner() : msg.sender == feeManager, "Not a fee manager");
+        require(feeManager == address(0) ? msg.sender == owner() : msg.sender == feeManager, "");
         _;
     }
 
@@ -219,7 +219,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     /** Function only callable by fee manager */
     modifier onlyWindowManager() {
-        require(windowManager == address(0) ? msg.sender == owner() : msg.sender == windowManager, "Not a window manager");
+        require(windowManager == address(0) ? msg.sender == owner() : msg.sender == windowManager, "");
         _;
     }
 
@@ -383,9 +383,11 @@ contract BountyRegistry is Pausable, Ownable {
         // Check that our bounty amount is sufficient
         require(amount >= BOUNTY_AMOUNT_MINIMUM, "Bounty amount below minimum");
         // Check that our URI is non-empty
+//        require(bytes(artifactURI).length > 0, "Invalid artifact URI");
         require(bytes(artifactURI).length > 0 && numArtifacts <= 256 && numArtifacts > 0 && uint256(ArtifactType._END) > artifactType, "Invalid artifact parameters");
         // Check that our number of artifacts is valid
-//        require(numArtifacts <= 256 && numArtifacts > 0, "Invalid number of artifacts");
+//        require(numArtifacts <= 256, "Too many artifacts in bounty");
+//        require(numArtifacts > 0, "Not enough artifacts in bounty");
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
         // Check that artifactType int does not exceed number of values
@@ -579,9 +581,10 @@ contract BountyRegistry is Pausable, Ownable {
         // Check if this bounty has been initialized
         require(bounty.author != address(0), "Bounty not initialized");
         // Check that the reveal round has closed
-        require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number, "Reveal round is still active");
+        require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number && bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Not in voting round");
+//        require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number, "Reveal round is still active");
         // Check if the voting round has closed
-        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Voting round has closed");
+//        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Voting round has closed");
         // Check to make sure arbiters can't double vote
         require(arbiterVoteRegistryByGuid[bountyGuid][msg.sender] == false, "Arbiter has already voted");
 
