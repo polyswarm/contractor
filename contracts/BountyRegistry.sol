@@ -383,13 +383,13 @@ contract BountyRegistry is Pausable, Ownable {
         // Check that our bounty amount is sufficient
         require(amount >= BOUNTY_AMOUNT_MINIMUM, "Bounty amount below minimum");
         // Check that our URI is non-empty
-        require(bytes(artifactURI).length > 0, "Invalid artifact URI");
+        require(bytes(artifactURI).length > 0 && numArtifacts <= 256 && numArtifacts > 0 && uint256(ArtifactType._END) > artifactType, "Invalid artifact parameters");
         // Check that our number of artifacts is valid
-        require(numArtifacts <= 256 && numArtifacts > 0, "Invalid number of artifacts");
+//        require(numArtifacts <= 256 && numArtifacts > 0, "Invalid number of artifacts");
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
         // Check that artifactType int does not exceed number of values
-        require(uint256(ArtifactType._END) > artifactType, "Invalid artifact type");
+//        require(uint256(ArtifactType._END) > artifactType, "Invalid artifact type");
 
         // Assess fees and transfer bounty amount into escrow
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
@@ -454,7 +454,7 @@ contract BountyRegistry is Pausable, Ownable {
 
         uint256 bid_sum = 0;
         for (uint i = 0; i < bid.length; i++) {
-            require(bid[i] >= ASSERTION_BID_ARTIFACT_MINIMUM, "Assertion bid below minimum");
+            require(bid[i] >= ASSERTION_BID_ARTIFACT_MINIMUM, "Bid below minimum");
             bid_sum = bid_sum.add(bid[i]);
         }
 
