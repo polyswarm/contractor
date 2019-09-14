@@ -445,17 +445,17 @@ contract BountyRegistry is Pausable, Ownable {
         whenNotPaused
     {
         // Check if this bounty has been initialized
-        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
+        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
         // Check that our bid amount is sufficient
         // Check if bid meets minimum value
-        require(bid.length == countBits(mask), "Bid count does not match mask count");
+        require(bid.length == countBits(mask), "Bid does not match mask count");
         // Check if this bounty is active
         require(bountiesByGuid[bountyGuid].expirationBlock > block.number, "Bounty inactive");
         // Check if the sender has already made an assertion
         require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
 
         uint256 bid_sum = 0;
-        for (uint i =0; i < bid.length; i++) {
+        for (uint i = 0; i < bid.length; i++) {
             require(bid[i] >= ASSERTION_BID_ARTIFACT_MINIMUM, "Assertion bid below minimum");
             bid_sum = bid_sum.add(bid[i]);
         }
@@ -518,7 +518,7 @@ contract BountyRegistry is Pausable, Ownable {
         whenNotPaused
     {
         // Check if this bounty has been initialized
-        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
+        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
         // Check that the bounty is no longer active
         require(bountiesByGuid[bountyGuid].expirationBlock <= block.number, "Bounty is still active");
         // Check if the reveal round has closed
@@ -579,7 +579,7 @@ contract BountyRegistry is Pausable, Ownable {
         Vote[] storage bountyVotes = votesByGuid[bountyGuid];
 
         // Check if this bounty has been initialized
-        require(bounty.author != address(0), "Bounty has not been initialized");
+        require(bounty.author != address(0), "Bounty not initialized");
         // Check that the reveal round has closed
         require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number, "Reveal round is still active");
         // Check if the voting round has closed
@@ -663,7 +663,7 @@ contract BountyRegistry is Pausable, Ownable {
         mapping (uint256 => uint256) storage quorumVotes = quorumVotesByGuid[bountyGuid];
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
-        require(bounty.author != address(0), "Bounty has not been initialized");
+        require(bounty.author != address(0), "Bounty not initialized");
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender], "Sender has already settled");
         // Check that the voting round has closed
@@ -777,7 +777,7 @@ contract BountyRegistry is Pausable, Ownable {
         Assertion[] storage assertions = assertionsByGuid[bountyGuid];
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
-        require(bounty.author != address(0), "Bounty has not been initialized");
+        require(bounty.author != address(0), "Bounty not initialized");
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender], "Sender already settled");
         // Check that the voting round has closed
@@ -841,7 +841,7 @@ contract BountyRegistry is Pausable, Ownable {
      * @param bountyGuid the guid of the bounty
      */
     function getWeightedRandomArbiter(uint128 bountyGuid) public view returns (address voter) {
-        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
+        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
 
         Bounty memory bounty = bountiesByGuid[bountyGuid];
         Vote[] memory votes = votesByGuid[bountyGuid];
@@ -888,7 +888,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function getCurrentRound(uint128 bountyGuid) external view returns (uint256) {
         // Check if this bounty has been initialized
-        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
+        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
 
         Bounty memory bounty = bountiesByGuid[bountyGuid];
 
@@ -912,7 +912,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function getNumberOfAssertions(uint128 bountyGuid) external view returns (uint) {
         // Check if this bounty has been initialized
-        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
+        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
 
         return assertionsByGuid[bountyGuid].length;
     }
@@ -923,7 +923,7 @@ contract BountyRegistry is Pausable, Ownable {
      * @param bountyGuid the guid of the bounty
      */
     function getNumberOfVotes(uint128 bountyGuid) external view returns (uint256) {
-        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
+        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
 
         return votesByGuid[bountyGuid].length;
     }
@@ -934,7 +934,7 @@ contract BountyRegistry is Pausable, Ownable {
      * @param bountyGuid the guid of the bounty
      */
     function getVoters(uint128 bountyGuid) external view returns (address[] memory) {
-        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
+        require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
 
         Vote[] memory votes = votesByGuid[bountyGuid];
         uint count = votes.length;
