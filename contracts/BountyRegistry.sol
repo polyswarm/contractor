@@ -33,7 +33,6 @@ contract BountyRegistry is Pausable, Ownable {
 
     struct Assertion {
         address author;
-        uint256[] bid;
         uint256 mask;
         uint256 commitment;
         uint256 nonce;
@@ -467,7 +466,6 @@ contract BountyRegistry is Pausable, Ownable {
 
         Assertion memory a = Assertion(
             msg.sender,
-            bid,
             mask,
             commitment,
             0,
