@@ -352,7 +352,7 @@ contract BountyRegistry is Pausable, Ownable {
      * @param assertionId the id of the assertion to retrieve
      */
     function getBids(uint128 bountyGuid, uint256 assertionId) public view returns (uint256[] memory bids) {
-        require(bountiesByGuid[bountyGuid].author != address(0) && assertionBidByGuid[bountyGuid].length >= assertionId, "Invalid bountyGuid/assertionId");
+        require(bountiesByGuid[bountyGuid].author != address(0) && assertionBidByGuid[bountyGuid].length >= assertionId, "");
         bids = assertionBidByGuid[bountyGuid][assertionId];
     }
 
@@ -385,8 +385,7 @@ contract BountyRegistry is Pausable, Ownable {
         // Check that our URI is non-empty
         require(bytes(artifactURI).length > 0, "Invalid artifact URI");
         // Check that our number of artifacts is valid
-        require(numArtifacts <= 256, "Too many artifacts in bounty");
-        require(numArtifacts > 0, "Not enough artifacts in bounty");
+        require(numArtifacts <= 256 && numArtifacts > 0, "Invalid number of artifacts");
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
         // Check that artifactType int does not exceed number of values
@@ -446,11 +445,10 @@ contract BountyRegistry is Pausable, Ownable {
     {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
-        // Check that our bid amount is sufficient
-        // Check if bid meets minimum value
-        require(bid.length == countBits(mask), "Bid does not match mask count");
         // Check if this bounty is active
         require(bountiesByGuid[bountyGuid].expirationBlock > block.number, "Bounty inactive");
+        // Check if bid meets minimum value
+        require(bid.length == countBits(mask), "Bid does not match mask count");
         // Check if the sender has already made an assertion
         require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
 
