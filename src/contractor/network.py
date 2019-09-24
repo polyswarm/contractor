@@ -16,6 +16,8 @@ from trezorlib.ui import ClickUI
 from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
 
+from contractor.exceptions import TransactionFailedError
+
 logger = logging.getLogger(__name__)
 
 BLOCKS_TO_WAIT = 5
@@ -362,7 +364,7 @@ class Network(object):
         txhash = HexBytes(txhash)
         receipt = self.wait_for_transaction(txhash)
         if not self.check_transaction(txhash):
-            raise Exception('Transaction {0} failed, check network state'.format(txhash.hex()))
+            raise TransactionFailedError('Transaction {0} failed, check network state'.format(txhash.hex()))
         return receipt
 
     def wait_and_check_transactions(self, txhashes):
@@ -373,7 +375,7 @@ class Network(object):
         """
         receipts = self.wait_for_transactions(txhashes)
         if not self.check_transactions(txhashes):
-            raise Exception('Transaction failed, check network state')
+            raise TransactionFailedError('Transaction failed, check network state')
         return receipts
 
     def wait_and_process_receipt(self, txhash, event):
@@ -385,3 +387,14 @@ class Network(object):
         """
         receipt = self.wait_and_check_transaction(txhash)
         return event.processReceipt(receipt)
+
+    def wait_for_blocks(self, duration):
+        """Wait for a certain number of blocks to pass (blocking
+
+        :param duration: Number of blocks to wait
+        """
+        start = current = self.block_number()
+        end = start + duration
+        while current < end:
+            time.sleep(1)
+            current = self.block_number()

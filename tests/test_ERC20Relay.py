@@ -435,3 +435,14 @@ def test_cannot_unanchor_processed_blocks(erc20_relay):
 
     with pytest.raises(TransactionFailed):
         ERC20Relay.functions.unanchor().transact({'from': verifiers[0].address})
+
+
+def test_emit_event_deprecate(erc20_relay):
+    ERC20Relay = erc20_relay.ERC20Relay
+    network = erc20_relay.network
+
+    txhash = ERC20Relay.functions.deprecate().transact({"from": ERC20Relay.owner})
+
+    deprecate = network.wait_and_process_receipt(txhash, ERC20Relay.events.Deprecated())
+
+    assert deprecate[0].args['erc20Relay'] == ERC20Relay.address

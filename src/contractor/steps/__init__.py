@@ -41,6 +41,8 @@ class Step(object, metaclass=__MetaRegistry):
 
     DEPENDENCIES = set()
     """Dependencies of this step which must be performed first"""
+    DEACTIVATE_DEPENDENCIES = set()
+    """Dependencies of this deactivate step which must be performed first"""
 
     def run(self, network, deployer):
         """Run this deployment step
@@ -51,21 +53,32 @@ class Step(object, metaclass=__MetaRegistry):
         """
         pass
 
-    def validate(self, network):
+    def deactivate(self, network, deployer):
+        """Run this deactivate setep
+
+        :param network: Network being deactivated
+        :param deployer: Deployer for deprecating and transacting resolving in progress tasks
+        :return: None
+        """
+        pass
+
+    def validate(self, network, deactivate=False):
         """Ensures prerequisites for step and configuration are correct before proceeding.
 
         :param network: Network being deployed to
+        :param deactivate: Is this deactivating, or running
         :return: True if valid, else False
         """
         return True
 
 
-def run(network, deployer, to_deploy=None):
+def run(network, deployer, to_deploy=None, deactivate=False):
     """Run all deployment steps in order.
 
     :param network: Network being deployed to
     :param deployer: Deployer for deploying and transacting with contracts
     :param to_deploy: List of what steps to perform, by default all steps will be run
+    :param deactivate: Is this deactivating, or running
     :return: None
     """
     # Load all our submodules so they get registered
@@ -76,15 +89,22 @@ def run(network, deployer, to_deploy=None):
     if to_deploy is not None:
         contracts = {k: v for k, v in REGISTRY.items() if k in to_deploy}
 
-    depgraph = {k: v.DEPENDENCIES for k, v in contracts.items()}
+    if not deactivate:
+        depgraph = {k: v.DEPENDENCIES for k, v in contracts.items()}
+    else:
+        depgraph = {k: v.DEACTIVATE_DEPENDENCIES for k, v in contracts.items()}
+
     ordered_steps = [(k, contracts[k]()) for k in toposort_flatten(depgraph)]
 
     logger.info('Deployment order: %s', ', '.join([x[0] for x in ordered_steps]))
 
     for name, step in ordered_steps:
-        if not step.validate(network):
+        if not step.validate(network, deactivate):
             raise ValueError('Preconditions not met for contract {}, check config'.format(name))
 
     for name, step in ordered_steps:
         logger.info('Running deployment for %s', name)
-        step.run(network, deployer)
+        if deactivate:
+            step.deactivate(network, deployer)
+        else:
+            step.run(network, deployer)

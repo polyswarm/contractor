@@ -46,3 +46,18 @@ class BountyRegistry(Step):
                 deployer.contracts['BountyRegistry'].functions.addArbiter(arbiter, network.block_number())))
 
         network.wait_and_check_transactions(txhashes)
+
+    def deactivate(self, network, deployer):
+        """Run this deactivate setep
+
+        :param network: Network being deployed to
+        :param deployer: Deployer for tearing down this contract and transacting resolving in progress tasks
+        :return: None
+        """
+        txhash = deployer.transact(deployer.contracts['BountyRegistry'].functions.deprecate())
+        network.wait_and_check_transaction(txhash)
+
+        revealWindow = deployer.contracts['BountyRegistry'].functions.assertionRevealWindow.call()
+        voteWindow = deployer.contracts['BountyRegistry'].functions.arbiterVoteWindow.call()
+        max_duration = deployer.contracts['BountyRegistry'].functions.MAX_DURATION.call()
+        network.wait_blocks((revealWindow + voteWindow + max_duration) * 2)
