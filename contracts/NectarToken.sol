@@ -2,9 +2,8 @@ pragma solidity ^0.5.0;
 
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20Mintable.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
-import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
-contract NectarToken is ERC20Mintable, Ownable, Pausable {
+contract NectarToken is ERC20Mintable, Ownable {
     string public name = "Nectar";
     string public symbol = "NCT";
     uint8 public decimals = 18;

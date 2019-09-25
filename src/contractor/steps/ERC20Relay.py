@@ -16,7 +16,7 @@ class ERC20Relay(Step):
     """Deployment steps for the ERC20Relay contract.
     """
 
-    DEACTIVATE_DEPENDENCIES = {'NectarToken'}
+    DEACTIVATE_DEPENDENCIES = {'BountyRegistry'}
     DEPENDENCIES = {'NectarToken'}
     """ERC20Relay depends on NectarToken"""
 

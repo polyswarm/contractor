@@ -67,7 +67,3 @@ class NectarToken(Step):
         if mint and network.chain == Chain.HOMECHAIN:
             mint_for_users(network, deployer, users, user_mint_amount)
             mint_for_users(network, deployer, arbiters, arbiter_mint_amount)
-
-    def deactivate(self, network, deployer):
-        txhash = deployer.contracts['NectarToken'].functions.pause()
-        network.wait_and_check_transaction(txhash)
