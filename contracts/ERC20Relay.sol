@@ -149,7 +149,7 @@ contract ERC20Relay is Ownable {
      * If called on a sidechain, this will trigger relay to withdrawal all funds out of the homechain contract
      */
     function flush() external onlyOwner {
-        require(flushBlock != 0, "Contract already flushed");
+        require(flushBlock == 0, "Contract already flushed");
         flushBlock = block.number;
         emit Flush(address(this));
     }
