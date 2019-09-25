@@ -443,6 +443,6 @@ def test_emit_event_flush(erc20_relay):
 
     txhash = ERC20Relay.functions.flush().transact({"from": ERC20Relay.owner})
 
-    flushed = network.wait_and_process_receipt(txhash, ERC20Relay.events.Flushed())
+    flushed = network.wait_and_process_receipt(txhash, ERC20Relay.events.Flush())
     assert flushed is not None
 
