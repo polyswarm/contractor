@@ -57,7 +57,7 @@ class BountyRegistry(Step):
         txhash = deployer.transact(deployer.contracts['BountyRegistry'].functions.deprecate())
         network.wait_and_check_transaction(txhash)
 
-        revealWindow = deployer.contracts['BountyRegistry'].functions.assertionRevealWindow.call()
-        voteWindow = deployer.contracts['BountyRegistry'].functions.arbiterVoteWindow.call()
-        max_duration = deployer.contracts['BountyRegistry'].functions.MAX_DURATION.call()
-        network.wait_blocks((revealWindow + voteWindow + max_duration) * 2)
+        revealWindow = deployer.contracts['BountyRegistry'].functions.assertionRevealWindow().call()
+        voteWindow = deployer.contracts['BountyRegistry'].functions.arbiterVoteWindow().call()
+        max_duration = deployer.contracts['BountyRegistry'].functions.MAX_DURATION().call()
+        network.wait_for_blocks((revealWindow + voteWindow + max_duration) * 2)

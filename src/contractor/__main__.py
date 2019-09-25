@@ -345,8 +345,6 @@ def deactivate(ctx):
               help='Path to Trezor device')
 @click.option('--derivation-path', default='m/44\'/60\'/0\'/0/0',
               help='Derivation path of key to use on Trezor')
-@click.option('--chain', type=click.Choice(('home', 'side')), required=True,
-              help='Is this deployment on the homechain or sidechain?')
 @click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
               help='Directory containing the compiled artifacts to deploy')
 @click.option('-i', '--input', type=click.Path(dir_okay=False), required=False,
@@ -354,9 +352,9 @@ def deactivate(ctx):
 @click.option('-t', '--timeout', type=int, default=60,
               help='Time to wait for input file to exist')
 @click.pass_context
-def community(ctx, config, community, network, keyfile, password, trezor, trezor_path, derivation_path, chain,
+def community(ctx, config, community, network, keyfile, password, trezor, trezor_path, derivation_path,
               artifactdir, input, timeout):
-    config = Config.from_yaml(config, Chain.from_str(chain))
+    config = Config.from_yaml(config, Chain.SIDECHAIN)
 
     if network not in config.network_configs:
         click.echo('No such network {0} defined, check configuration', network)
@@ -365,6 +363,10 @@ def community(ctx, config, community, network, keyfile, password, trezor, trezor
     network = configure_network(config, network, keyfile, password, trezor, trezor_path, derivation_path)
 
     deployer = Deployer(community, network, artifactdir)
+
+    # Default to homechain.json/sidechain.json
+    if not input:
+        input = 'sidechain.json'
 
     click.echo('Waiting for deployment results')
     if not wait_for_file(input, timeout):

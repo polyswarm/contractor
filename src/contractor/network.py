@@ -395,6 +395,7 @@ class Network(object):
         """
         start = current = self.block_number()
         end = start + duration
+        logger.info('Waiting %s blocks', duration)
         while current < end:
             time.sleep(1)
             current = self.block_number()
