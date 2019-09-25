@@ -24,14 +24,3 @@ def test_transfer(nectar_token):
     NectarToken.functions.transfer(receiver.address, USER_STARTING_BALANCE).transact({'from': sender.address})
     assert NectarToken.functions.balanceOf(receiver.address).call() == 2 * USER_STARTING_BALANCE
     assert NectarToken.functions.balanceOf(sender.address).call() == 0
-
-
-def test_pause(nectar_token):
-    NectarToken = nectar_token.NectarToken
-
-    sender = NectarToken.users[0]
-    receiver = NectarToken.users[1]
-
-    NectarToken.functions.pause().transact({'from', NectarToken.owner})
-    with pytest.raises(TransactionFailed):
-        NectarToken.functions.transfer(receiver.address, USER_STARTING_BALANCE).transact({'from': sender.address})
