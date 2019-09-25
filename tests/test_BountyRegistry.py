@@ -216,8 +216,7 @@ def test_emit_event_deprecate(bounty_registry):
     txhash = BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
 
     deprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
-
-    assert deprecate[0].args['bountyRegistry'] == BountyRegistry.address
+    assert deprecate is not None
 
 
 def test_post_bounty(bounty_registry):

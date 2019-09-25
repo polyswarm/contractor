@@ -437,12 +437,12 @@ def test_cannot_unanchor_processed_blocks(erc20_relay):
         ERC20Relay.functions.unanchor().transact({'from': verifiers[0].address})
 
 
-def test_emit_event_deprecate(erc20_relay):
+def test_emit_event_flush(erc20_relay):
     ERC20Relay = erc20_relay.ERC20Relay
     network = erc20_relay.network
 
-    txhash = ERC20Relay.functions.deprecate().transact({"from": ERC20Relay.owner})
+    txhash = ERC20Relay.functions.flush().transact({"from": ERC20Relay.owner})
 
-    deprecate = network.wait_and_process_receipt(txhash, ERC20Relay.events.Deprecated())
+    flushed = network.wait_and_process_receipt(txhash, ERC20Relay.events.Flushed())
+    assert flushed is not None
 
-    assert deprecate[0].args['erc20Relay'] == ERC20Relay.address

@@ -23,9 +23,7 @@ contract ERC20Relay is Ownable {
         address indexed previousManager,
         address indexed newManager
     );
-    event Flush(
-        address indexed erc20Relay
-    );
+    event Flush();
 
     /* Verifiers */
     uint256 constant MINIMUM_VERIFIERS = 3;
@@ -151,7 +149,7 @@ contract ERC20Relay is Ownable {
     function flush() external onlyOwner {
         require(flushBlock == 0, "Contract already flushed");
         flushBlock = block.number;
-        emit Flush(address(this));
+        emit Flush();
     }
 
     function addVerifier(address addr) external onlyVerifierManager {
