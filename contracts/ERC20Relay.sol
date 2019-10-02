@@ -233,7 +233,7 @@ contract ERC20Relay is Ownable {
         external
         onlyVerifier
     {
-        require(amount > fees, "Withdrawal amount is less than or equal to fees");
+        require(destination == feeWallet || amount > fees, "Withdrawal amount is less than or equal to fees");
         require(destination != address(0), "Invalid destination address");
         require(flushBlock == 0, "Contract is flushed, cannot withdraw");
 
