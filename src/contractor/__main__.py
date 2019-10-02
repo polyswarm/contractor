@@ -334,7 +334,7 @@ def deactivate(ctx):
 @click.option('--community', envvar='COMMUNITY', required=True,
               help='What community we are deploying for')
 @click.option('--network', required=True,
-              help='What network to deploy to')
+              help='What network to deactivate')
 @click.option('--keyfile', envvar='KEYFILE', type=click.File('r'),
               help='Path to private key json file used to deploy')
 @click.option('--password', envvar='PASSWORD',
