@@ -144,9 +144,7 @@ contract BountyRegistry is Pausable, Ownable {
         uint256 arbiterVoteWindow
     );
 
-    event Deprecated(
-        address indexed bountyRegistry
-    );
+    event Deprecated();
 
     uint256 public deprecatedBlock;
     uint256 public arbiterCount;
@@ -256,7 +254,7 @@ contract BountyRegistry is Pausable, Ownable {
      */
     function deprecate() external onlyOwner whenNotDeprecated {
         deprecatedBlock = block.number;
-        emit Deprecated(address(this));
+        emit Deprecated();
     }
 
     /**

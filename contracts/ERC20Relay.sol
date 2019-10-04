@@ -23,6 +23,7 @@ contract ERC20Relay is Ownable {
         address indexed previousManager,
         address indexed newManager
     );
+    event Flush();
 
     /* Verifiers */
     uint256 constant MINIMUM_VERIFIERS = 3;
@@ -37,6 +38,7 @@ contract ERC20Relay is Ownable {
     uint256 public nctEthExchangeRate;
     uint256 public fees;
     address public feeWallet;
+    uint256 public flushBlock;
 
     struct Withdrawal {
         address destination;
@@ -104,6 +106,7 @@ contract ERC20Relay is Ownable {
 
         token = ERC20(_token);
         feeWallet = _feeWallet;
+        flushBlock = 0;
     }
 
     /** Disable usage of the fallback function */
@@ -137,6 +140,16 @@ contract ERC20Relay is Ownable {
     function setFeeManager(address newFeeManager) external onlyOwner {
         emit NewFeeManager(feeManager, newFeeManager);
         feeManager = newFeeManager;
+    }
+
+    /**
+     * Triggers a Flush event.
+     * If called on a sidechain, this will trigger relay to withdrawal all funds out of the homechain contract
+     */
+    function flush() external onlyOwner {
+        require(flushBlock == 0, "Contract already flushed");
+        flushBlock = block.number;
+        emit Flush();
     }
 
     function addVerifier(address addr) external onlyVerifierManager {
@@ -220,8 +233,9 @@ contract ERC20Relay is Ownable {
         external
         onlyVerifier
     {
-        require(amount > fees, "Withdrawal amount is less than or equal to fees");
+        require(destination == feeWallet || amount > fees, "Withdrawal amount is less than or equal to fees");
         require(destination != address(0), "Invalid destination address");
+        require(flushBlock == 0, "Contract is flushed, cannot withdraw");
 
         bytes32 hash = keccak256(abi.encodePacked(txHash, blockHash, blockNumber));
         uint256 net = amount.sub(fees);

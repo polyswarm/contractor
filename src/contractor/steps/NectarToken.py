@@ -33,6 +33,7 @@ def mint_for_users(network, deployer, users, mint_amount):
 class NectarToken(Step):
     """Deployment steps for the NectarToken contract.
     """
+    DEACTIVATE_DEPENDENCIES = {'BountyRegistry'}
 
     def run(self, network, deployer):
         """Run the deployment.

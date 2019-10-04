@@ -435,3 +435,14 @@ def test_cannot_unanchor_processed_blocks(erc20_relay):
 
     with pytest.raises(TransactionFailed):
         ERC20Relay.functions.unanchor().transact({'from': verifiers[0].address})
+
+
+def test_emit_event_flush(erc20_relay):
+    ERC20Relay = erc20_relay.ERC20Relay
+    network = erc20_relay.network
+
+    txhash = ERC20Relay.functions.flush().transact({"from": ERC20Relay.owner})
+
+    flushed = network.wait_and_process_receipt(txhash, ERC20Relay.events.Flush())
+    assert flushed is not None
+

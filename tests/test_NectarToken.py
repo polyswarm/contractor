@@ -1,3 +1,6 @@
+import pytest
+from eth_tester.exceptions import TransactionFailed
+
 USER_STARTING_BALANCE = 3000000 * 10 ** 18
 ARBITER_STARTING_BALANCE = 50000000 * 10 ** 18
 

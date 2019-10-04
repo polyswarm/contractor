@@ -16,6 +16,7 @@ class ERC20Relay(Step):
     """Deployment steps for the ERC20Relay contract.
     """
 
+    DEACTIVATE_DEPENDENCIES = {'BountyRegistry'}
     DEPENDENCIES = {'NectarToken'}
     """ERC20Relay depends on NectarToken"""
 
@@ -65,14 +66,25 @@ class ERC20Relay(Step):
             txhash = deployer.transact(deployer.contracts['NectarToken'].functions.mint(contract.address, total_supply))
             network.wait_and_check_transaction(txhash)
 
-    def validate(self, network):
+    def deactivate(self, network, deployer):
+        """Run this deactivate setep
+
+        :param network: Network being deployed to
+        :param deployer: deployer for deprecating and transacting resolving in progress tasks
+        :return: None
+        """
+        txhash = deployer.transact(deployer.contracts['ERC20Relay'].functions.flush())
+        network.wait_and_check_transaction(txhash)
+
+    def validate(self, network, deactivate=False):
         """Ensures prerequisites for step and configuration are correct before proceeding.
 
         :param network: Network being deployed to
+        :param deactivate: Is this deactivating, or running
         :return: True if valid, else False
         """
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         fee_wallet = contract_config.get('fee_wallet')
         verifiers = contract_config.get('verifiers')
 
-        return fee_wallet is not None and verifiers is not None
+        return deactivate or (fee_wallet is not None and verifiers is not None)
