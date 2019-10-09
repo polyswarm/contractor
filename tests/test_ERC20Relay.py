@@ -217,6 +217,33 @@ def test_should_allow_verifiers_to_approve_withdrawals(erc20_relay):
     assert transfer[1].args['to'] == user.address
 
 
+def test_should_withdraw_transfers_to_fee_wallet_less_than_fees(erc20_relay):
+    NectarToken = erc20_relay.NectarToken
+    ERC20Relay = erc20_relay.ERC20Relay
+    network = erc20_relay.network
+
+    verifiers = ERC20Relay.verifiers
+    fee_wallet = ERC20Relay.fee_wallet
+
+    amount = 1
+    txhash = NectarToken.functions.transfer(ERC20Relay.address, amount).transact({'from': fee_wallet.address})
+    receipt = network.wait_for_transaction(txhash)
+    block_hash = receipt.blockHash
+    block_number = receipt.blockNumber
+
+    ERC20Relay.functions.approveWithdrawal(fee_wallet.address, amount, txhash, block_hash, block_number).transact(
+        {'from': verifiers[0].address})
+    transfer_txhash = ERC20Relay.functions.approveWithdrawal(fee_wallet.address, amount, txhash, block_hash,
+                                                             block_number).transact({'from': verifiers[1].address})
+    ERC20Relay.functions.approveWithdrawal(fee_wallet.address, amount, txhash, block_hash, block_number).transact(
+        {'from': verifiers[2].address})
+
+    transfer = network.wait_and_process_receipt(transfer_txhash, NectarToken.events.Transfer())
+    assert len(transfer) == 1
+    assert transfer[0].args['from'] == ERC20Relay.address
+    assert transfer[0].args['to'] == fee_wallet.address
+
+
 def test_reject_approvals_of_different_transactions_with_same_hash(erc20_relay):
     ERC20Relay = erc20_relay.ERC20Relay
 
