@@ -233,12 +233,12 @@ contract ERC20Relay is Ownable {
         external
         onlyVerifier
     {
-        require(destination == feeWallet || amount > fees, "Withdrawal amount is less than or equal to fees");
         require(destination != address(0), "Invalid destination address");
+        require((destination == feeWallet && amount > 0) || amount > fees, "Withdrawal amount is less than or equal to fees");
         require(flushBlock == 0, "Contract is flushed, cannot withdraw");
 
         bytes32 hash = keccak256(abi.encodePacked(txHash, blockHash, blockNumber));
-        uint256 net = amount.sub(fees);
+        uint256 net = destination != feeWallet ? amount.sub(fees) : amount;
 
         if (withdrawals[hash].destination == address(0)) {
             withdrawals[hash] = Withdrawal(destination, net, false);
@@ -257,11 +257,13 @@ contract ERC20Relay is Ownable {
         approvals.push(msg.sender);
 
         if (approvals.length >= requiredVerifiers && !w.processed) {
-            if (fees != 0 && feeWallet != address(0)) {
+            if (fees != 0 && feeWallet != address(0) && destination != feeWallet) {
                 token.safeTransfer(feeWallet, fees);
             }
 
-            // We require that amount > fees therefore net > 0
+            // Two cases here
+            // First We require that amount > fees therefore net > 0
+            // Second if destination is feeWallet, then we required amount > 0, therefore net > 0
             token.safeTransfer(destination, net);
 
             w.processed = true;
