@@ -837,8 +837,7 @@ contract BountyRegistry is Pausable, Ownable {
             uint256[] memory stakingBalances = new uint256[](votes.length);
 
             for (i = 0; i < votes.length; i++) {
-                address author = votes[i].author;
-                uint256 balance = staking.balanceOf(author);
+                uint256 balance = staking.balanceOf(votes[i].author);
                 stakingBalances[i] = balance;
                 sum = sum.add(balance);
             }
@@ -846,11 +845,10 @@ contract BountyRegistry is Pausable, Ownable {
             randomNum = randomGen(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow), block.number, sum);
 
             for (i = 0; i < votes.length; i++) {
-                address author = votes[i].author;
                 randomNum -= int256(stakingBalances[i]);
 
                 if (randomNum <= 0) {
-                    voter = author;
+                    voter = votes[i].author;
                     break;
                 }
             }
