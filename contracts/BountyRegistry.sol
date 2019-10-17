@@ -244,7 +244,7 @@ contract BountyRegistry is Pausable, Ownable {
 
     /** Function only callable when not deprecated */
     modifier whenNotDeprecated() {
-        require(deprecatedBlock == 0, "Contract is deprecated");
+        require(deprecatedBlock <= 0, "Contract is deprecated");
         _;
     }
 
@@ -379,16 +379,10 @@ contract BountyRegistry is Pausable, Ownable {
         require(bountiesByGuid[guid].author == address(0), "GUID already in use");
         // Check that our bounty amount is sufficient
         require(amount >= BOUNTY_AMOUNT_MINIMUM, "Bounty amount below minimum");
-        // Check that our URI is non-empty
-//        require(bytes(artifactURI).length > 0, "Invalid artifact URI");
+        // Check that the artifact values are valid
         require(bytes(artifactURI).length > 0 && numArtifacts <= 256 && numArtifacts > 0 && uint256(ArtifactType._END) > artifactType, "Invalid artifact parameters");
-        // Check that our number of artifacts is valid
-//        require(numArtifacts <= 256, "Too many artifacts in bounty");
-//        require(numArtifacts > 0, "Not enough artifacts in bounty");
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
-        // Check that artifactType int does not exceed number of values
-//        require(uint256(ArtifactType._END) > artifactType, "Invalid artifact type");
 
         // Assess fees and transfer bounty amount into escrow
         token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
@@ -450,6 +444,8 @@ contract BountyRegistry is Pausable, Ownable {
         require(bid.length == countBits(mask), "Bid does not match mask count");
         // Check if the sender has already made an assertion
         require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
+        // Make sure they can't assert on their own bounties
+//        require(bountiesByGuid[bountyGuid].author != msg.sender, "Sender created this bounty");
 
         uint256 bid_sum = 0;
         for (uint i = 0; i < bid.length; i++) {
@@ -576,11 +572,10 @@ contract BountyRegistry is Pausable, Ownable {
 
         // Check if this bounty has been initialized
         require(bounty.author != address(0), "Bounty not initialized");
-        // Check that the reveal round has closed
+        // Check that this is the voting round
         require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number && bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Not in voting round");
-//        require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number, "Reveal round is still active");
-        // Check if the voting round has closed
-//        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Voting round has closed");
+        // Make sure sender has not asserted as microengine nor submited the bounty
+//        require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false && bountiesByGuid[bountyGuid].author != msg.sender, "Arbiter cannot vote and assert");
         // Check to make sure arbiters can't double vote
         require(arbiterVoteRegistryByGuid[bountyGuid][msg.sender] == false, "Arbiter has already voted");
 
@@ -641,7 +636,7 @@ contract BountyRegistry is Pausable, Ownable {
     }
 
     /**
-     * Function to calculate the reward disbursment of a bounty
+     * Function to calculate the reward rewards from a bounty
      *
      * @param bountyGuid the guid of the bounty to calculate
      * @return Rewards distributed by the bounty
@@ -661,18 +656,12 @@ contract BountyRegistry is Pausable, Ownable {
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
         require(bounty.author != address(0), "Bounty not initialized");
-        // Check if this bounty has been previously resolved for the sender
-        require(!bountySettled[bountyGuid][msg.sender], "Sender has already settled");
-        // Check that the voting round has closed
-        // solium-disable-next-line indentation
-        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
-            "Voting active, not quorum");
 
         expertRewards = new uint256[](assertions.length);
         bountyRefund = 0;
 
         ArtifactPot memory ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
-        uint256 artifactBid = 0;
+        uint256[][] memory artifactBids = new uint256[][](bounty.numArtifacts);
 
         uint256 i = 0;
         uint256 j = 0;
@@ -698,21 +687,22 @@ contract BountyRegistry is Pausable, Ownable {
                 ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
                 bool consensus = quorumVotes[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= votes.length.sub(quorumVotes[i]).mul(BENIGN_VOTE_COEFFICIENT);
                 bool malicious;
+                artifactBids[i] = new uint256[](assertions.length);
 
                 for (j = 0; j < assertions.length; j++) {
-                    artifactBid = getArtifactBid(assertions[j].mask, assertionBids[j], i);
+                    artifactBids[i][j] = getArtifactBid(assertions[j].mask, assertionBids[j], i);
                     if (assertions[j].mask & (1 << i) > 0) {
-                        // If we haven't revealed set to incorrect value
+                        // If they haven't revealed set to incorrect value
                         malicious = assertions[j].nonce == 0
                                 ? !consensus
                                 : (assertions[j].verdicts & assertions[j].mask) & (1 << i) > 0;
 
                         if (malicious == consensus) {
                             ap.numWinners = ap.numWinners.add(1);
-                            ap.winnerPool = ap.winnerPool.add(artifactBid);
+                            ap.winnerPool = ap.winnerPool.add(artifactBids[i][j]);
                         } else {
                             ap.numLosers = ap.numLosers.add(1);
-                            ap.loserPool = ap.loserPool.add(artifactBid);
+                            ap.loserPool = ap.loserPool.add(artifactBids[i][j]);
                         }
                     }
                 }
@@ -721,22 +711,20 @@ contract BountyRegistry is Pausable, Ownable {
                 if (ap.numWinners == 0 && ap.numLosers == 0) {
                     bountyRefund = bountyRefund.add(bounty.amount.div(bounty.numArtifacts));
                     for (j = 0; j < assertions.length; j++) {
-                        artifactBid = getArtifactBid(assertions[j].mask, assertionBids[j], i);
-                        expertRewards[j] = expertRewards[j].add(artifactBid);
+                        expertRewards[j] = expertRewards[j].add(artifactBids[i][j]);
                     }
                 } else {
                     for (j = 0; j < assertions.length; j++) {
-                        artifactBid = getArtifactBid(assertions[j].mask, assertionBids[j], i);
                         if (assertions[j].mask & (1 << i) > 0) {
                             malicious = assertions[j].nonce == 0
                             ? !consensus
                             : (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
                             if (malicious == consensus) {
-                                expertRewards[j] = expertRewards[j].add(artifactBid);
+                                expertRewards[j] = expertRewards[j].add(artifactBids[i][j]);
                                 // Take a portion of the losing bids
-                                expertRewards[j] = expertRewards[j].add(artifactBid.mul(ap.loserPool).div(ap.winnerPool));
+                                expertRewards[j] = expertRewards[j].add(artifactBids[i][j].mul(ap.loserPool).div(ap.winnerPool));
                                 // Take a portion of the amount (for this artifact)
-                                uint256 amountCut = artifactBid.mul(bounty.amount).div(ap.winnerPool);
+                                uint256 amountCut = artifactBids[i][j].mul(bounty.amount).div(ap.winnerPool);
                                 expertRewards[j] = expertRewards[j].add(amountCut.div(bounty.numArtifacts));
                             }
                         }
@@ -748,7 +736,6 @@ contract BountyRegistry is Pausable, Ownable {
         // Calculate rewards
         uint256 pot = bounty.amount.add(bountyFee.add(assertionFee.mul(assertions.length)));
         for (i = 0; i < assertions.length; i++) {
-            uint256 bid = 0;
             for (j = 0; j < assertionBids[i].length; j++) {
                 pot = pot.add(assertionBids[i][j]);
             }
@@ -847,15 +834,18 @@ contract BountyRegistry is Pausable, Ownable {
             uint256 i;
             uint256 sum = 0;
             int256 randomNum;
+            uint256[] memory stakingBalances = new uint256[](votes.length);
 
             for (i = 0; i < votes.length; i++) {
-                sum = sum.add(staking.balanceOf(votes[i].author));
+                uint256 balance = staking.balanceOf(votes[i].author);
+                stakingBalances[i] = balance;
+                sum = sum.add(balance);
             }
 
             randomNum = randomGen(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow), block.number, sum);
 
             for (i = 0; i < votes.length; i++) {
-                randomNum -= int256(staking.balanceOf(votes[i].author));
+                randomNum -= int256(stakingBalances[i]);
 
                 if (randomNum <= 0) {
                     voter = votes[i].author;
