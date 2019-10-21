@@ -8,6 +8,7 @@ stages:
   - test
   - e2e
   - release
+  - kick
 
 variables:
   DOCKER_HOST: tcp://localhost:2375/
@@ -84,7 +85,7 @@ release-latest-linux:
 ###############################################################
 
 kick-after-complete:
-  stage: deployment
+  stage: kick
   only:
     - master
   trigger: externalci/ci-image
