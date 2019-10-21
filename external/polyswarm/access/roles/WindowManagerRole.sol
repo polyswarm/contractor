@@ -16,7 +16,7 @@ contract WindowManagerRole {
 
     /** Function only callable by fee manager */
     modifier onlyWindowManager() {
-        require(_windowManager == msg.sender, "Sender is not WindowManager");
+        require(_windowManager == msg.sender);
         _;
     }
 

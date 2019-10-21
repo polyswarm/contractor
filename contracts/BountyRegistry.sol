@@ -24,7 +24,6 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         uint128 guid;
         ArtifactType  artifactType;
         address author;
-        uint256 amount;
         string artifactURI;
         uint256 numArtifacts;
         uint256 expirationBlock;
@@ -54,7 +53,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         uint128 guid,
         uint256 artifactType,
         address author,
-        uint256 amount,
+        uint256[] amount,
         string artifactURI,
         uint256 expirationBlock,
         string metadata
@@ -100,8 +99,9 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     ArbiterStaking public staking;
     NectarToken internal token;
 
-    uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
+    uint256 public constant BOUNTY_AMOUNT_MINIMUM = 2000000000000000000;
     uint256 public constant ASSERTION_BID_ARTIFACT_MINIMUM = 62500000000000000;
+    uint256 public constant ASSERTION_BID_ARTIFACT_MAXIMUM = 1000000000000000000;
     uint256 public constant DEFAULT_BOUNTY_FEE = 62500000000000000;
     uint256 public constant DEFAULT_ASSERTION_FEE = 31250000000000000;
     uint256 public constant MAX_DURATION = 100; // BLOCKS
@@ -126,6 +126,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     uint256 public assertionRevealWindow;
     uint128[] public bountyGuids;
     mapping(uint128 => Bounty) public bountiesByGuid;
+    mapping(uint128 => uint256[]) public amountsByGuid;
     mapping(uint128 => Assertion[]) public assertionsByGuid;
     mapping(uint128 => uint256[][]) public assertionBidByGuid;
     mapping(uint128 => Vote[]) public votesByGuid;
@@ -183,8 +184,6 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         emit WindowsUpdated(assertionRevealWindow, arbiterVoteWindow);
     }
 
-
-
     /**
      * Get the number of 1 bits in a uint256
      * @param value some uint256 to count
@@ -215,7 +214,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     function getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) public pure returns (uint256 value) {
         value = 0;
         if ((mask & (1 << index)) > 0) {
-            // 256 is right here, because we want to move the value at index off the page
+            // 256 is correct here, because we want to move the value at index off the page
             uint256 bidIndex = countBits(mask << (256 - index) >> (256 - index));
             value = bid[bidIndex];
         }
@@ -242,7 +241,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     function postBounty(
         uint128 guid,
         uint256 artifactType,
-        uint256 amount,
+        uint256[] calldata amount,
         string calldata artifactURI,
         uint256 numArtifacts,
         uint256 durationBlocks,
@@ -255,20 +254,26 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     {
         // Check if a bounty with this GUID has already been initialized
         require(bountiesByGuid[guid].author == address(0), "GUID already in use");
-        // Check that our bounty amount is sufficient
-        require(amount >= BOUNTY_AMOUNT_MINIMUM, "Bounty amount below minimum");
+        // Check that we have an amount per artifact
+        require(amount.length == numArtifacts, "Amount must match numArtifacts");
         // Check that the artifact values are valid
         require(bytes(artifactURI).length > 0 && numArtifacts <= 256 && numArtifacts > 0 && uint256(ArtifactType._END) > artifactType, "Invalid artifact parameters");
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
 
+        uint256 amount_sum = 0;
+        for (uint i = 0; i < amount.length; i++) {
+            // Check that our bounty amount is sufficient for each artifact
+            require(amount[i] >= BOUNTY_AMOUNT_MINIMUM, "Amount below minimum");
+            amount_sum = amount_sum.add(amount[i]);
+        }
+
         // Assess fees and transfer bounty amount into escrow
-        token.safeTransferFrom(msg.sender, address(this), amount.add(bountyFee));
+        token.safeTransferFrom(msg.sender, address(this), amount_sum.add(bountyFee));
 
         bountiesByGuid[guid].guid = guid;
         bountiesByGuid[guid].artifactType = ArtifactType(artifactType);
         bountiesByGuid[guid].author = msg.sender;
-        bountiesByGuid[guid].amount = amount;
         bountiesByGuid[guid].artifactURI = artifactURI;
         bountiesByGuid[guid].metadata = metadata;
         // Number of artifacts is submitted as part of the bounty, we have no
@@ -281,6 +286,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
 
         bountyGuids.push(guid);
 
+        amountsByGuid[guid] = amount;
         bloomByGuid[guid] = bloom;
 
         Bounty storage b = bountiesByGuid[guid];
@@ -289,7 +295,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
             b.guid,
             uint256(b.artifactType),
             b.author,
-            b.amount,
+            amount,
             b.artifactURI,
             b.expirationBlock,
             b.metadata
@@ -325,7 +331,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
 
         uint256 bid_sum = 0;
         for (uint i = 0; i < bid.length; i++) {
-            require(bid[i] >= ASSERTION_BID_ARTIFACT_MINIMUM, "Bid below minimum");
+            require(bid[i] >= ASSERTION_BID_ARTIFACT_MINIMUM && bid[i] <= ASSERTION_BID_ARTIFACT_MAXIMUM, "Bid not between min & max");
             bid_sum = bid_sum.add(bid[i]);
         }
 
@@ -522,13 +528,14 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         returns (uint256 bountyRefund, uint256 arbiterReward, uint256[] memory expertRewards)
     {
         Bounty storage bounty = bountiesByGuid[bountyGuid];
+        // Check if this bountiesByGuid[bountyGuid] has been initialized
+        require(bounty.author != address(0), "Bounty not initialized");
+
+        uint256[] storage amount = amountsByGuid[bountyGuid];
         Assertion[] storage assertions = assertionsByGuid[bountyGuid];
         uint256[][] storage assertionBids = assertionBidByGuid[bountyGuid];
         Vote[] storage votes = votesByGuid[bountyGuid];
         mapping (uint256 => uint256) storage quorumVotes = quorumVotesByGuid[bountyGuid];
-
-        // Check if this bountiesByGuid[bountyGuid] has been initialized
-        require(bounty.author != address(0), "Bounty not initialized");
 
         expertRewards = new uint256[](assertions.length);
         bountyRefund = 0;
@@ -536,37 +543,38 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         ArtifactPot memory ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
         uint256[][] memory artifactBids = new uint256[][](bounty.numArtifacts);
 
-        uint256 i = 0;
-        uint256 j = 0;
-
         if (assertions.length == 0 && votes.length == 0) {
             // Refund the bounty amount and fees to ambassador
-            bountyRefund = bounty.amount.add(bountyFee);
+            bountyRefund = bountyFee;
+            for (uint i = 0; i < bounty.numArtifacts; i++) {
+                bountyRefund = bountyRefund.add(amount[i]);
+            }
         } else if (assertions.length == 0) {
             // Refund the bounty amount ambassador
-            bountyRefund = bounty.amount;
+            for (uint i = 0; i < bounty.numArtifacts; i++) {
+                bountyRefund = bountyRefund.add(amount[i]);
+            }
         } else if (votes.length == 0) {
             // Refund bids, fees, and distribute the bounty amount evenly to experts
             bountyRefund = bountyFee;
-            for (j = 0; j < assertions.length; j++) {
-                expertRewards[j] = expertRewards[j].add(assertionFee)
-                                  .add(bounty.amount.div(assertions.length));
-                for (i = 0; i < assertionBids[j].length; i++) {
-                        expertRewards[j] = expertRewards[j].add(assertionBids[j][i]);
+            for (uint j = 0; j < assertions.length; j++) {
+                expertRewards[j] = expertRewards[j].add(assertionFee);
+                for (uint i = 0; i < assertionBids[j].length; i++) {
+                        expertRewards[j] = amount[i].div(assertions.length).add(expertRewards[j]).add(assertionBids[j][i]);
                 }
             }
         } else {
-            for (i = 0; i < bounty.numArtifacts; i++) {
+            for (uint i = 0; i < bounty.numArtifacts; i++) {
+                uint256 amount = amount[i];
                 ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
                 bool consensus = quorumVotes[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= votes.length.sub(quorumVotes[i]).mul(BENIGN_VOTE_COEFFICIENT);
-                bool malicious;
                 artifactBids[i] = new uint256[](assertions.length);
 
-                for (j = 0; j < assertions.length; j++) {
+                for (uint j = 0; j < assertions.length; j++) {
                     artifactBids[i][j] = getArtifactBid(assertions[j].mask, assertionBids[j], i);
                     if (assertions[j].mask & (1 << i) > 0) {
                         // If they haven't revealed set to incorrect value
-                        malicious = assertions[j].nonce == 0
+                        bool malicious = assertions[j].nonce == 0
                                 ? !consensus
                                 : (assertions[j].verdicts & assertions[j].mask) & (1 << i) > 0;
 
@@ -582,23 +590,19 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
 
                 // If nobody asserted on this artifact, refund the ambassador
                 if (ap.numWinners == 0 && ap.numLosers == 0) {
-                    bountyRefund = bountyRefund.add(bounty.amount.div(bounty.numArtifacts));
-                    for (j = 0; j < assertions.length; j++) {
-                        expertRewards[j] = expertRewards[j].add(artifactBids[i][j]);
-                    }
+                    bountyRefund = amount.add(bountyRefund);
                 } else {
-                    for (j = 0; j < assertions.length; j++) {
+                    for (uint j = 0; j < assertions.length; j++) {
                         if (assertions[j].mask & (1 << i) > 0) {
-                            malicious = assertions[j].nonce == 0
+                            bool malicious = assertions[j].nonce == 0
                             ? !consensus
                             : (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
                             if (malicious == consensus) {
                                 expertRewards[j] = expertRewards[j].add(artifactBids[i][j]);
                                 // Take a portion of the losing bids
-                                expertRewards[j] = expertRewards[j].add(artifactBids[i][j].mul(ap.loserPool).div(ap.winnerPool));
+                                expertRewards[j] = artifactBids[i][j].mul(ap.loserPool).div(ap.winnerPool).add(expertRewards[j]);
                                 // Take a portion of the amount (for this artifact)
-                                uint256 amountCut = artifactBids[i][j].mul(bounty.amount).div(ap.winnerPool);
-                                expertRewards[j] = expertRewards[j].add(amountCut.div(bounty.numArtifacts));
+                                expertRewards[j] = artifactBids[i][j].mul(amount).div(ap.winnerPool).add(expertRewards[j]);
                             }
                         }
                     }
@@ -607,19 +611,20 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         }
 
         // Calculate rewards
-        uint256 pot = bounty.amount.add(bountyFee.add(assertionFee.mul(assertions.length)));
-        for (i = 0; i < assertions.length; i++) {
-            for (j = 0; j < assertionBids[i].length; j++) {
+        uint256 pot = assertionFee.mul(assertions.length).add(bountyFee);
+        for (uint i = 0; i < bounty.numArtifacts; i++) {
+            pot = pot.add(amount[i]);
+        }
+        for (uint i = 0; i < assertions.length; i++) {
+            for (uint j = 0; j < assertionBids[i].length; j++) {
                 pot = pot.add(assertionBids[i][j]);
             }
         }
 
         pot = pot.sub(bountyRefund);
-
-        for (i = 0; i < assertions.length; i++) {
+        for (uint i = 0; i < assertions.length; i++) {
             pot = pot.sub(expertRewards[i]);
         }
-
         arbiterReward = pot;
     }
 
@@ -638,12 +643,11 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender], "Sender already settled");
         // Check that the voting round has closed
-        // solium-disable-next-line indentation
-        require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number || bounty.quorumReached,
-            "Voting active, not quorum");
+        uint round = getCurrentRound(bountyGuid);
+        require(round == 3 || round == 4, "No Quorum and vote active");
 
         if (isArbiter(msg.sender)) {
-            require(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) <= block.number, "Voting round still active");
+            require(round == 4, "Voting round still active");
             if (bounty.assignedArbiter == address(0)) {
                 if (bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow).add(VALID_HASH_PERIOD) >= block.number) {
                     bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
@@ -667,7 +671,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
             payout = payout.add(bountyRefund);
         }
 
-        for (uint256 i = 0; i < assertions.length; i++) {
+        for (uint i = 0; i < assertions.length; i++) {
             if (expertRewards[i] != 0 && assertions[i].author == msg.sender) {
                 token.safeTransfer(assertions[i].author, expertRewards[i]);
                 payout = payout.add(expertRewards[i]);
@@ -704,12 +708,11 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         Vote[] memory votes = votesByGuid[bountyGuid];
         voter = address(0);
         if (votes.length > 0) {
-            uint256 i;
             uint256 sum = 0;
             int256 randomNum;
             uint256[] memory stakingBalances = new uint256[](votes.length);
 
-            for (i = 0; i < votes.length; i++) {
+            for (uint i = 0; i < votes.length; i++) {
                 uint256 balance = staking.balanceOf(votes[i].author);
                 stakingBalances[i] = balance;
                 sum = sum.add(balance);
@@ -717,7 +720,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
 
             randomNum = randomGen(bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow), block.number, sum);
 
-            for (i = 0; i < votes.length; i++) {
+            for (uint i = 0; i < votes.length; i++) {
                 randomNum -= int256(stakingBalances[i]);
 
                 if (randomNum <= 0) {
@@ -744,7 +747,8 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      *      0 = assertions being accepted
      *      1 = assertions being revealed
      *      2 = arbiters voting
-     *      3 = bounty finished
+     *      3 = arbiters voting, and quorum reached
+     *      4 = bounty finished
      */
     function getCurrentRound(uint128 bountyGuid) public view returns (uint256) {
         // Check if this bounty has been initialized
@@ -826,9 +830,6 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         require(bountyGuids.length > 0, "No bounties have been placed");
 
         uint256 count = 0;
-        uint256 i = 0;
-        uint256 j = 0;
-
         Candidate[] memory candidates = new Candidate[](ARBITER_LOOKBACK_RANGE);
 
         uint256 lastBounty = 0;
@@ -836,10 +837,10 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
             lastBounty = bountyGuids.length.sub(ARBITER_LOOKBACK_RANGE);
         }
 
-        for (i = bountyGuids.length; i > lastBounty; i--) {
+        for (uint i = bountyGuids.length; i > lastBounty; i--) {
             address addr = bountiesByGuid[bountyGuids[i.sub(1)]].author;
             bool found = false;
-            for (j = 0; j < count; j++) {
+            for (uint j = 0; j < count; j++) {
                 if (candidates[j].addr == addr) {
                     candidates[j].count = candidates[j].count.add(1);
                     found = true;
@@ -855,11 +856,11 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
 
         address[] memory ret = new address[](count);
 
-        for (i = 0; i < ret.length; i++) {
+        for (uint i = 0; i < ret.length; i++) {
             uint256 next = 0;
             uint256 value = candidates[0].count;
 
-            for (j = 0; j < count; j++) {
+            for (uint j = 0; j < count; j++) {
                 if (candidates[j].count > value) {
                     next = j;
                     value = candidates[j].count;
@@ -900,18 +901,16 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         Candidate[] memory candidates = new Candidate[](ARBITER_LOOKBACK_RANGE);
 
         uint256 lastBounty = 0;
-        uint256 i = 0;
-        uint256 j = 0;
 
         if (bountyGuids.length > ARBITER_LOOKBACK_RANGE) {
             lastBounty = bountyGuids.length.sub(ARBITER_LOOKBACK_RANGE);
             threshold = lastBounty.div(10).mul(9);
         }
 
-        for (i = bountyGuids.length.sub(1); i > lastBounty; i--) {
+        for (uint i = bountyGuids.length.sub(1); i > lastBounty; i--) {
             Vote[] memory votes = votesByGuid[bountyGuids[i]];
 
-            for (j = 0; j < votes.length; j++) {
+            for (uint j = 0; j < votes.length; j++) {
                 bool found = false;
                 address addr = votes[j].author;
 
@@ -933,11 +932,11 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         }
 
 
-        for (i = 0; i < ret_addr.length; i++) {
+        for (uint i = 0; i < ret_addr.length; i++) {
             uint256 next = 0;
             uint256 value = candidates[0].count;
 
-            for (j = 0; j < count; j++) {
+            for (uint j = 0; j < count; j++) {
                 if (candidates[j].count > value) {
                     next = j;
                     value = candidates[j].count;

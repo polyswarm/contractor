@@ -19,7 +19,7 @@ contract Deprecatable is DeprecatorRole {
 
     /** Function only callable when not deprecated */
     modifier whenNotDeprecated() {
-        require(deprecatedBlock <= 0, "Contract is deprecated");
+        require(deprecatedBlock <= 0);
         _;
     }
 

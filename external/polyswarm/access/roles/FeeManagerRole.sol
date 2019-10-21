@@ -16,11 +16,11 @@ contract FeeManagerRole {
 
         /** Function only callable by fee manager */
     modifier onlyFeeManager() {
-        require(_feeManager == msg.sender, "Sender is not FeeManager");
+        require(_feeManager == msg.sender);
         _;
     }
 
-        /**
+    /**
      * Set account which can update fees
      *
      * @param newFeeManager The new fee manager
