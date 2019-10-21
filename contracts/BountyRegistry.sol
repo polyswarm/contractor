@@ -6,9 +6,13 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 import "./ArbiterStaking.sol";
 import "./NectarToken.sol";
+import "polyswarm/lifecycle/Deprecatable.sol";
+import "polyswarm/access/roles/ArbiterRole.sol";
+import "polyswarm/access/roles/FeeManagerRole.sol";
+import "polyswarm/access/roles/WindowManagerRole.sol";
 
 
-contract BountyRegistry is Pausable, Ownable {
+contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Deprecatable, Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
@@ -45,16 +49,6 @@ contract BountyRegistry is Pausable, Ownable {
         uint256 votes;
         bool validBloom;
     }
-
-    event AddedArbiter(
-        address arbiter,
-        uint256 blockNumber
-    );
-
-    event RemovedArbiter(
-        address arbiter,
-        uint256 blockNumber
-    );
 
     event NewBounty(
         uint128 guid,
@@ -106,13 +100,10 @@ contract BountyRegistry is Pausable, Ownable {
     ArbiterStaking public staking;
     NectarToken internal token;
 
-
-
     uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
     uint256 public constant ASSERTION_BID_ARTIFACT_MINIMUM = 62500000000000000;
     uint256 public constant DEFAULT_BOUNTY_FEE = 62500000000000000;
     uint256 public constant DEFAULT_ASSERTION_FEE = 31250000000000000;
-    uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
     uint256 public constant MAX_DURATION = 100; // BLOCKS
     uint256 public constant MALICIOUS_VOTE_COEFFICIENT = 10;
     uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
@@ -121,22 +112,10 @@ contract BountyRegistry is Pausable, Ownable {
     uint256[16] public bits = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
     uint256 public bountyFee;
     uint256 public assertionFee;
-    address public feeManager;
-    address public windowManager;
-
-    event NewFeeManager(
-        address indexed previousManager,
-        address indexed newManager
-    );
 
     event FeesUpdated(
         uint256 bountyFee,
         uint256 assertionFee
-    );
-
-    event NewWindowManager(
-        address indexed previousManager,
-        address indexed newManager
     );
 
     event WindowsUpdated(
@@ -144,10 +123,6 @@ contract BountyRegistry is Pausable, Ownable {
         uint256 arbiterVoteWindow
     );
 
-    event Deprecated();
-
-    uint256 public deprecatedBlock;
-    uint256 public arbiterCount;
     uint256 public arbiterVoteWindow;
     uint256 public assertionRevealWindow;
     uint128[] public bountyGuids;
@@ -157,7 +132,6 @@ contract BountyRegistry is Pausable, Ownable {
     mapping(uint128 => Vote[]) public votesByGuid;
     mapping(uint128 => uint256[8]) public bloomByGuid;
     mapping(uint128 => mapping(uint256 => uint256)) public quorumVotesByGuid;
-    mapping(address => bool) public arbiters;
     mapping(uint256 => mapping(uint256 => uint256)) public voteCountByGuid;
     mapping(uint256 => mapping(address => bool)) public arbiterVoteRegistryByGuid;
     mapping(uint256 => mapping(address => bool)) public expertAssertionRegistryByGuid;
@@ -171,28 +145,12 @@ contract BountyRegistry is Pausable, Ownable {
     constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow, uint256 _assertionRevealWindow) Ownable() public {
         bountyFee = DEFAULT_BOUNTY_FEE;
         assertionFee = DEFAULT_ASSERTION_FEE;
-        deprecatedBlock = 0;
         token = NectarToken(_token);
         staking = ArbiterStaking(_arbiterStaking);
         arbiterVoteWindow = _arbiterVoteWindow;
         assertionRevealWindow = _assertionRevealWindow;
     }
 
-    /** Function only callable by fee manager */
-    modifier onlyFeeManager() {
-        require(feeManager == address(0) ? msg.sender == owner() : msg.sender == feeManager, "");
-        _;
-    }
-
-    /**
-     * Set account which can update fees
-     *
-     * @param newFeeManager The new fee manager
-     */
-    function setFeeManager(address newFeeManager) external onlyOwner {
-        emit NewFeeManager(feeManager, newFeeManager);
-        feeManager = newFeeManager;
-    }
 
     /**
      * Set bounty fee in NCT
@@ -214,22 +172,6 @@ contract BountyRegistry is Pausable, Ownable {
         emit FeesUpdated(bountyFee, assertionFee);
     }
 
-    /** Function only callable by fee manager */
-    modifier onlyWindowManager() {
-        require(windowManager == address(0) ? msg.sender == owner() : msg.sender == windowManager, "");
-        _;
-    }
-
-    /**
-     * Set account which can update windows
-     *
-     * @param newWindowManager The new fee manager
-     */
-    function setWindowManager(address newWindowManager) external onlyOwner {
-        emit NewWindowManager(windowManager, newWindowManager);
-        windowManager = newWindowManager;
-    }
-
     /**
      * Set arbiter voting window in blocks
      *
@@ -242,71 +184,7 @@ contract BountyRegistry is Pausable, Ownable {
         emit WindowsUpdated(assertionRevealWindow, arbiterVoteWindow);
     }
 
-    /** Function only callable when not deprecated */
-    modifier whenNotDeprecated() {
-        require(deprecatedBlock <= 0, "Contract is deprecated");
-        _;
-    }
 
-    /**
-     * Deprecate this contract
-     * The contract disables new bounties, but allows other parts to function
-     */
-    function deprecate() external onlyOwner whenNotDeprecated {
-        deprecatedBlock = block.number;
-        emit Deprecated();
-    }
-
-    /**
-     * Function to check if an address is a valid arbiter
-     *
-     * @param addr The address to check
-     * @return true if addr is a valid arbiter else false
-     */
-    function isArbiter(address addr) public view returns (bool) {
-        // Remove arbiter requirements for now, while we are whitelisting
-        // arbiters on the platform
-        //return arbiters[addr] && staking.isEligible(addr);
-        return arbiters[addr];
-    }
-
-    /** Function only callable by arbiter */
-    modifier onlyArbiter() {
-        require(isArbiter(msg.sender), "msg.sender is not an arbiter");
-        _;
-    }
-
-    /**
-     * Function called to add an arbiter, emits an evevnt with the added arbiter
-     * and block number used to calculate their arbiter status based on public
-     * arbiter selection algorithm.
-     *
-     * @param newArbiter the arbiter to add
-     * @param blockNumber the block number the determination to add was
-     *      calculated from
-     */
-    function addArbiter(address newArbiter, uint256 blockNumber) external whenNotPaused onlyOwner {
-        require(newArbiter != address(0), "Invalid arbiter address");
-        require(!arbiters[newArbiter], "Address is already an arbiter");
-        arbiterCount = arbiterCount.add(1);
-        arbiters[newArbiter] = true;
-        emit AddedArbiter(newArbiter, blockNumber);
-    }
-
-    /**
-     * Function called to remove an arbiter, emits an evevnt with the removed
-     * arbiter and block number used to calculate their arbiter status based on
-     * public arbiter selection algorithm.
-     *
-     * @param arbiter the arbiter to remove
-     * @param blockNumber the block number the determination to remove was
-     *      calculated from
-     */
-    function removeArbiter(address arbiter, uint256 blockNumber) external whenNotPaused onlyOwner {
-        arbiters[arbiter] = false;
-        arbiterCount = arbiterCount.sub(1);
-        emit RemovedArbiter(arbiter, blockNumber);
-    }
 
     /**
      * Get the number of 1 bits in a uint256
@@ -444,8 +322,6 @@ contract BountyRegistry is Pausable, Ownable {
         require(bid.length == countBits(mask), "Bid does not match mask count");
         // Check if the sender has already made an assertion
         require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false, "Sender has already asserted");
-        // Make sure they can't assert on their own bounties
-//        require(bountiesByGuid[bountyGuid].author != msg.sender, "Sender created this bounty");
 
         uint256 bid_sum = 0;
         for (uint i = 0; i < bid.length; i++) {
@@ -574,8 +450,6 @@ contract BountyRegistry is Pausable, Ownable {
         require(bounty.author != address(0), "Bounty not initialized");
         // Check that this is the voting round
         require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number && bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Not in voting round");
-        // Make sure sender has not asserted as microengine nor submited the bounty
-//        require(expertAssertionRegistryByGuid[bountyGuid][msg.sender] == false && bountiesByGuid[bountyGuid].author != msg.sender, "Arbiter cannot vote and assert");
         // Check to make sure arbiters can't double vote
         require(arbiterVoteRegistryByGuid[bountyGuid][msg.sender] == false, "Arbiter has already voted");
 
