@@ -16,7 +16,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "1.4.0";
+    string public constant VERSION = "1.4.1";
 
     enum ArtifactType {FILE, URL, _END}
 
@@ -212,7 +212,11 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      * @return uin256 that represents the bid for a specific artifact
 
      */
-    function getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) public view returns (uint256 value) {
+    function getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) internal view returns (uint256) {
+        return _getArtifactBid(mask, bid, index);
+    }
+
+    function _getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) private view returns (uint256 value) {
         value = 0;
         if ((mask & (1 << index)) > 0) {
             // 256 is right here, because we want to move the value at index off the page
@@ -317,7 +321,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
         // Check if this bounty is active
-        require(bountiesByGuid[bountyGuid].expirationBlock > block.number, "Bounty inactive");
+        require(getCurrentRound(bountyGuid) == 0, "Bounty inactive");
         // Check if bid meets minimum value
         require(bid.length == countBits(mask), "Bid does not match mask count");
         // Check if the sender has already made an assertion
@@ -359,7 +363,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     }
 
     // https://ethereum.stackexchange.com/questions/4170/how-to-convert-a-uint-to-bytes-in-solidity
-    function uint256_to_bytes(uint256 x) internal pure returns (bytes memory b) {
+    function uint256_to_bytes(uint256 x) private pure returns (bytes memory b) {
         b = new bytes(32);
         // solium-disable-next-line security/no-inline-assembly
         assembly { mstore(add(b, 32), x) }
@@ -388,9 +392,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
         // Check that the bounty is no longer active
-        require(bountiesByGuid[bountyGuid].expirationBlock <= block.number, "Bounty is still active");
-        // Check if the reveal round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(assertionRevealWindow) > block.number, "Reveal round has closed");
+        require(getCurrentRound(bountyGuid) == 1, "Bounty not in reveal window");
         // Get numArtifacts to help decode all zero verdicts
         uint256 numArtifacts = bountiesByGuid[bountyGuid].numArtifacts;
 
@@ -449,7 +451,8 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         // Check if this bounty has been initialized
         require(bounty.author != address(0), "Bounty not initialized");
         // Check that this is the voting round
-        require(bounty.expirationBlock.add(assertionRevealWindow) <= block.number && bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number, "Not in voting round");
+        uint256 round = getCurrentRound(bountyGuid);
+        require(round == 2 || round == 3, "Bounty not in voting window");
         // Check to make sure arbiters can't double vote
         require(arbiterVoteRegistryByGuid[bountyGuid][msg.sender] == false, "Arbiter has already voted");
 
@@ -518,7 +521,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     function calculateBountyRewards(
         uint128 bountyGuid
     )
-        public
+        private
         view
         returns (uint256 bountyRefund, uint256 arbiterReward, uint256[] memory expertRewards)
     {
@@ -698,7 +701,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      *
      * @param bountyGuid the guid of the bounty
      */
-    function getWeightedRandomArbiter(uint128 bountyGuid) public view returns (address voter) {
+    function getWeightedRandomArbiter(uint128 bountyGuid) private view returns (address voter) {
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
 
         Bounty memory bounty = bountiesByGuid[bountyGuid];
@@ -747,7 +750,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      *      2 = arbiters voting
      *      3 = bounty finished
      */
-    function getCurrentRound(uint128 bountyGuid) external view returns (uint256) {
+    function getCurrentRound(uint128 bountyGuid) public view returns (uint256) {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty not initialized");
 
@@ -760,8 +763,10 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         } else if (bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number &&
                   !bounty.quorumReached) {
             return 2;
-        } else {
+        } else if (bounty.expirationBlock.add(assertionRevealWindow).add(arbiterVoteWindow) > block.number) {
             return 3;
+        } else {
+            return 4;
         }
     }
 
@@ -873,7 +878,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         return ret;
     }
 
-    function calculateMask(uint256 i, uint256 b) public pure returns(uint256) {
+    function calculateMask(uint256 i, uint256 b) private pure returns(uint256) {
         if (b != 0) {
             return 1 << i;
         }
