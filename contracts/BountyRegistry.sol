@@ -109,7 +109,6 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
     uint256 public constant VALID_HASH_PERIOD = 256; // number of blocks in the past you can still get a blockhash
 
-    uint256[16] public bits = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
     uint256 public bountyFee;
     uint256 public assertionFee;
 
@@ -191,7 +190,8 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      * @param value some uint256 to count
      * @return number of set bits in the given value
      */
-    function countBits(uint256 value) public view returns (uint256 result) {
+    function countBits(uint256 value) public pure returns (uint256 result) {
+        uint8[16] memory bits = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
         result = 0;
         uint256 modified = value;
         if (value != 0) {
@@ -212,11 +212,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      * @return uin256 that represents the bid for a specific artifact
 
      */
-    function getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) internal view returns (uint256) {
-        return _getArtifactBid(mask, bid, index);
-    }
-
-    function _getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) private view returns (uint256 value) {
+    function getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) public pure returns (uint256 value) {
         value = 0;
         if ((mask & (1 << index)) > 0) {
             // 256 is right here, because we want to move the value at index off the page

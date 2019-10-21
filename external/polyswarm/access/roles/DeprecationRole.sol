@@ -27,8 +27,8 @@ contract DeprecatorRole {
         _addDeprecator(account);
     }
 
-    function renounceDeprecator() public {
-        _removeDeprecator(msg.sender);
+    function removeDeprecator(address account) public {
+        _removeDeprecator(account);
     }
 
     function _addDeprecator(address account) internal {

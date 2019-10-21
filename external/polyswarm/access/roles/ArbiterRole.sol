@@ -35,21 +35,13 @@ contract ArbiterRole is ArbiterManagerRole {
         return _arbiters.has(account);
     }
 
-    function addArbiter(address account, uint256 blockNumber) public onlyArbiterManager{
-        _addArbiter(account, blockNumber);
-    }
-
-    function removeArbiter(address account, uint256 blockNumber) public onlyArbiterManager {
-        _removeArbiter(account, blockNumber);
-    }
-
-    function _addArbiter(address account, uint256 blockNumber) internal {
+    function addArbiter(address account, uint256 blockNumber) public onlyArbiterManager {
         _arbiters.add(account);
         arbiterCount = arbiterCount.add(1);
         emit AddedArbiter(account, blockNumber);
     }
 
-    function _removeArbiter(address account, uint256 blockNumber) internal {
+    function removeArbiter(address account, uint256 blockNumber) public onlyArbiterManager {
         _arbiters.remove(account);
         arbiterCount = arbiterCount.sub(1);
         emit RemovedArbiter(account, blockNumber);

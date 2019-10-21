@@ -27,8 +27,8 @@ contract ArbiterManagerRole {
         _addArbiterManager(account);
     }
 
-    function renounceArbiterManager() public {
-        _removeArbiterManager(msg.sender);
+    function removeArbiterManager(address account) public {
+        _removeArbiterManager(account);
     }
 
     function _addArbiterManager(address account) internal {
