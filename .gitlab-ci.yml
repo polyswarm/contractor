@@ -8,6 +8,7 @@ stages:
   - test
   - e2e
   - release
+  - kick
 
 variables:
   DOCKER_HOST: tcp://localhost:2375/
@@ -78,3 +79,13 @@ release-latest-linux:
     - docker logout
     - docker login -u "$CI_CUSTOM_DOCKER_HUB_USERNAME" -p "$CI_CUSTOM_DOCKER_HUB_PASSWORD"
     - docker push polyswarm/$BASE_IMAGE_NAME:latest
+
+###############################################################
+# Deployment Stage
+###############################################################
+
+kick-after-complete:
+  stage: kick
+  only:
+    - master
+  trigger: externalci/ci-image
