@@ -78,3 +78,13 @@ release-latest-linux:
     - docker logout
     - docker login -u "$CI_CUSTOM_DOCKER_HUB_USERNAME" -p "$CI_CUSTOM_DOCKER_HUB_PASSWORD"
     - docker push polyswarm/$BASE_IMAGE_NAME:latest
+
+###############################################################
+# Deployment Stage
+###############################################################
+
+kick-after-complete:
+  stage: deployment
+  only:
+    - master
+  trigger: externalci/ci-image
