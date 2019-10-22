@@ -2,7 +2,7 @@ pragma solidity ^0.5.0;
 
 import "openzeppelin-solidity/contracts/access/roles/PauserRole.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
-import "../access/roles/DeprecationRole.sol";
+import "../access/roles/DeprecatorRole.sol";
 
 /**
  * @title Pausable
