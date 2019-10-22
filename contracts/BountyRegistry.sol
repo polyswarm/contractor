@@ -512,6 +512,26 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         emit NewVote(bountyGuid, votes, bounty.numArtifacts, msg.sender);
     }
 
+
+    /**
+    * Function to calculate the refund from a bounty
+    * @param bounty bounty to calculate refund
+    * @param assertionLength the length of assertions on this bounty
+    * @param votesLength the length of votes on this bounty
+    * @param totalAmount the sum of amount array for this bounty
+    * @return refund given to ambassador
+    */
+    function calculateBountyRefund(Bounty storage bounty, uint256 assertionLength, uint256 votesLength, uint256 totalAmount) private view returns (uint256 bountyRefund) {
+        bountyRefund = 0;
+        if (assertionLength == 0 && votesLength == 0) {
+            // Refund the bounty amount and fees to ambassador
+            bountyRefund = totalAmount.add(bountyFee);
+        } else if (assertionLength == 0) {
+            // Refund the bounty amount ambassador
+            bountyRefund = totalAmount;
+        }
+    }
+
     // This struct exists to move state from settleBounty into memory from stack
     // to avoid solidity limitations
     struct ArtifactPot {
@@ -519,6 +539,85 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         uint256 numLosers;
         uint256 winnerPool;
         uint256 loserPool;
+    }
+
+    /**
+    * Function to calculate the refund from a bounty, and expert rewards
+    * @param bounty bounty to calculate rewards against
+    * @param amount the amount array for this bounty
+    * @param assertions the assertions on this bounty
+    * @param assertionBids the bid arrays for each assertion
+    * @param votes the votes on this bounty
+    * @param quorumVotes the votes for each artifact for a malicious quorum
+    * @return refund given to ambassador
+    */
+    function calculateExpertRewards(Bounty storage bounty, uint256[] storage amount, Assertion[] storage assertions, uint256[][] storage assertionBids, Vote[] storage votes, mapping (uint256 => uint256) storage quorumVotes) private view returns (uint256 bountyRefund, uint256[] memory expertRewards) {
+        uint256[][] memory artifactBids = new uint256[][](bounty.numArtifacts);
+
+        expertRewards = new uint256[](assertions.length);
+        bountyRefund = 0;
+
+        if(votes.length == 0) {
+            bountyRefund = bountyFee;
+            for (uint j = 0; j < assertions.length; j++) {
+                expertRewards[j] = expertRewards[j].add(assertionFee);
+                for (uint i = 0; i < assertionBids[j].length; i++) {
+                        expertRewards[j] = amount[i].div(assertions.length).add(expertRewards[j]).add(assertionBids[j][i]);
+                }
+            }
+        } else {
+            for (uint i = 0; i < bounty.numArtifacts; i++) {
+                ArtifactPot memory ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
+                // Tie goes to malicious
+                bool consensus = quorumVotes[i] >= votes.length.sub(quorumVotes[i]);
+                artifactBids[i] = new uint256[](assertions.length);
+
+                for (uint j = 0; j < assertions.length; j++) {
+                    Assertion storage assertion = assertions[j];
+                    artifactBids[i][j] = getArtifactBid(assertion.mask, assertionBids[j], i);
+                    uint256 bid = artifactBids[i][j];
+                    if (assertion.mask & (1 << i) > 0) {
+                        // If they haven't revealed set to incorrect value
+                        bool malicious = assertion.nonce == 0
+                                ? !consensus
+                                : (assertion.verdicts & assertion.mask) & (1 << i) > 0;
+
+                        if (malicious == consensus) {
+                            ap.numWinners = ap.numWinners.add(1);
+                            ap.winnerPool = ap.winnerPool.add(bid);
+                        } else {
+                            ap.numLosers = ap.numLosers.add(1);
+                            ap.loserPool = ap.loserPool.add(bid);
+                        }
+                    }
+                }
+
+                // If nobody asserted on this artifact, refund the ambassador
+                if (ap.numWinners == 0 && ap.numLosers == 0) {
+                    bountyRefund = amount[i].add(bountyRefund);
+                } else {
+                    for (uint j = 0; j < assertions.length; j++) {
+                        uint256 reward = 0;
+                        Assertion storage assertion = assertions[j];
+                        if (assertions[j].mask & (1 << i) > 0) {
+                            bool malicious = assertion.nonce == 0
+                            ? !consensus
+                            : (assertion.verdicts & assertion.mask) & (1 << i) != 0;
+                            if (malicious == consensus) {
+                                uint256 amount = amount[i];
+                                uint256 bid = artifactBids[i][j];
+                                reward = reward.add(bid);
+                                // Take a portion of the losing bids
+                                reward = bid.mul(ap.loserPool).div(ap.winnerPool);
+                                // Take a portion of the amount (for this artifact)
+                                reward = bid.mul(amount).div(ap.winnerPool).add(reward);
+                            }
+                        }
+                        expertRewards[j] = expertRewards[j] + reward;
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -535,97 +634,32 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
         returns (uint256 bountyRefund, uint256 arbiterReward, uint256[] memory expertRewards)
     {
         Bounty storage bounty = bountiesByGuid[bountyGuid];
-        // Check if this bountiesByGuid[bountyGuid] has been initialized
-        require(bounty.author != address(0), "Bounty not initialized");
-
         uint256[] storage amount = amountsByGuid[bountyGuid];
         Assertion[] storage assertions = assertionsByGuid[bountyGuid];
         uint256[][] storage assertionBids = assertionBidByGuid[bountyGuid];
         Vote[] storage votes = votesByGuid[bountyGuid];
-        mapping (uint256 => uint256) storage quorumVotes = quorumVotesByGuid[bountyGuid];
 
-        expertRewards = new uint256[](assertions.length);
-        bountyRefund = 0;
+        uint256 totalAmount = 0;
+        for (uint i = 0; i < bounty.numArtifacts; i++) {
+            totalAmount  = totalAmount.add(amount[i]);
+        }
 
-        ArtifactPot memory ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
-        uint256[][] memory artifactBids = new uint256[][](bounty.numArtifacts);
-
-        if (assertions.length == 0 && votes.length == 0) {
-            // Refund the bounty amount and fees to ambassador
-            bountyRefund = bountyFee;
-            for (uint i = 0; i < bounty.numArtifacts; i++) {
-                bountyRefund = bountyRefund.add(amount[i]);
-            }
-        } else if (assertions.length == 0) {
-            // Refund the bounty amount ambassador
-            for (uint i = 0; i < bounty.numArtifacts; i++) {
-                bountyRefund = bountyRefund.add(amount[i]);
-            }
-        } else if (votes.length == 0) {
-            // Refund bids, fees, and distribute the bounty amount evenly to experts
-            bountyRefund = bountyFee;
-            for (uint j = 0; j < assertions.length; j++) {
-                expertRewards[j] = expertRewards[j].add(assertionFee);
-                for (uint i = 0; i < assertionBids[j].length; i++) {
-                        expertRewards[j] = amount[i].div(assertions.length).add(expertRewards[j]).add(assertionBids[j][i]);
-                }
-            }
+        // Calculate bounty refund
+        bountyRefund = calculateBountyRefund(bounty, assertions.length, votes.length, totalAmount);
+        // Calculate expertRewards
+        if (bountyRefund == 0) {
+            mapping (uint256 => uint256) storage quorumVotes = quorumVotesByGuid[bountyGuid];
+            (bountyRefund, expertRewards) = calculateExpertRewards(bounty, amount, assertions, assertionBids, votes, quorumVotes);
         } else {
-            for (uint i = 0; i < bounty.numArtifacts; i++) {
-                uint256 amount = amount[i];
-                ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
-                // Tie goes to malicious
-                bool consensus = quorumVotes[i] >= votes.length.sub(quorumVotes[i]);
-                artifactBids[i] = new uint256[](assertions.length);
-
-                for (uint j = 0; j < assertions.length; j++) {
-                    artifactBids[i][j] = getArtifactBid(assertions[j].mask, assertionBids[j], i);
-                    if (assertions[j].mask & (1 << i) > 0) {
-                        // If they haven't revealed set to incorrect value
-                        bool malicious = assertions[j].nonce == 0
-                                ? !consensus
-                                : (assertions[j].verdicts & assertions[j].mask) & (1 << i) > 0;
-
-                        if (malicious == consensus) {
-                            ap.numWinners = ap.numWinners.add(1);
-                            ap.winnerPool = ap.winnerPool.add(artifactBids[i][j]);
-                        } else {
-                            ap.numLosers = ap.numLosers.add(1);
-                            ap.loserPool = ap.loserPool.add(artifactBids[i][j]);
-                        }
-                    }
-                }
-
-                // If nobody asserted on this artifact, refund the ambassador
-                if (ap.numWinners == 0 && ap.numLosers == 0) {
-                    bountyRefund = amount.add(bountyRefund);
-                } else {
-                    for (uint j = 0; j < assertions.length; j++) {
-                        if (assertions[j].mask & (1 << i) > 0) {
-                            bool malicious = assertions[j].nonce == 0
-                            ? !consensus
-                            : (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
-                            if (malicious == consensus) {
-                                expertRewards[j] = expertRewards[j].add(artifactBids[i][j]);
-                                // Take a portion of the losing bids
-                                expertRewards[j] = artifactBids[i][j].mul(ap.loserPool).div(ap.winnerPool).add(expertRewards[j]);
-                                // Take a portion of the amount (for this artifact)
-                                expertRewards[j] = artifactBids[i][j].mul(amount).div(ap.winnerPool).add(expertRewards[j]);
-                            }
-                        }
-                    }
-                }
-            }
+            expertRewards = new uint256[](assertions.length);
         }
 
         // Calculate rewards
-        uint256 pot = assertionFee.mul(assertions.length).add(bountyFee);
-        for (uint i = 0; i < bounty.numArtifacts; i++) {
-            pot = pot.add(amount[i]);
-        }
+        uint256 pot = assertionFee.mul(assertions.length).add(bountyFee).add(totalAmount);
         for (uint i = 0; i < assertions.length; i++) {
-            for (uint j = 0; j < assertionBids[i].length; j++) {
-                pot = pot.add(assertionBids[i][j]);
+            uint256[] storage bids = assertionBids[i];
+            for (uint j = 0; j < bids.length; j++) {
+                pot = pot.add(bids[j]);
             }
         }
 
