@@ -219,6 +219,15 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     }
 
     /**
+     * Get the whole amount array for the given bounty
+     * @param bountyGuid the guid for the requested bounty
+     */
+    function getAmounts(uint128 bountyGuid) public view returns (uint256[] memory amounts) {
+        require(bountiesByGuid[bountyGuid].author != address(0), "");
+        amounts = amountsByGuid[bountyGuid];
+    }
+
+    /**
      * Get the whole bid array for the given assertion
      * @param bountyGuid the guid of the bounty asserted on
      * @param assertionId the id of the assertion to retrieve
