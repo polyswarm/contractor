@@ -572,8 +572,8 @@ def test_arbiter_settle_after_voting_ends(bounty_registry, eth_tester):
     eth_tester.mine_blocks(assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [False])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [False])
-    vote_on_bounty(bounty_registry, arbiters[2].address, guid, [False])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True])
+    vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True])
     vote_on_bounty(bounty_registry, arbiters[3].address, guid, [True])
 
     eth_tester.mine_blocks(arbiter_vote_window)
@@ -616,7 +616,7 @@ def test_should_allow_voting_after_quorum_reached(bounty_registry, eth_tester):
     eth_tester.mine_blocks(duration + assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [True])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [False])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True])
 
 
 def test_rejects_arbiter_settles_before_voting_ends(bounty_registry, eth_tester):
@@ -625,7 +625,9 @@ def test_rejects_arbiter_settles_before_voting_ends(bounty_registry, eth_tester)
     ambassador = BountyRegistry.ambassadors[0]
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
-    arbiter = BountyRegistry.arbiters[0]
+    arbiter0 = BountyRegistry.arbiters[0]
+    arbiter1 = BountyRegistry.arbiters[1]
+    arbiter2 = BountyRegistry.arbiters[2]
     duration = 10
 
     amount_minimum = [BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()] * 2
@@ -645,11 +647,13 @@ def test_rejects_arbiter_settles_before_voting_ends(bounty_registry, eth_tester)
 
     eth_tester.mine_blocks(assertion_reveal_window)
 
-    vote_on_bounty(bounty_registry, arbiter.address, guid, [True, True])
+    vote_on_bounty(bounty_registry, arbiter0.address, guid, [False, True])
+    vote_on_bounty(bounty_registry, arbiter1.address, guid, [False, True])
+    vote_on_bounty(bounty_registry, arbiter2.address, guid, [False, False])
 
     settle_bounty(bounty_registry, expert0.address, guid)
     with pytest.raises(TransactionFailed):
-        settle_bounty(bounty_registry, arbiter.address, guid)
+        settle_bounty(bounty_registry, arbiter0.address, guid)
 
 
 def test_settle_multi_artifact_bounty(bounty_registry, eth_tester):
@@ -685,7 +689,7 @@ def test_settle_multi_artifact_bounty(bounty_registry, eth_tester):
     eth_tester.mine_blocks(assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [False, True])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [False, True])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, True])
     vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True, True])
 
     eth_tester.mine_blocks(arbiter_vote_window)
@@ -742,7 +746,7 @@ def test_any_arbiter_settle_after_256_blocks(bounty_registry, eth_tester):
     eth_tester.mine_blocks(assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [False, True])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [False, True])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, True])
     vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True, True])
 
     eth_tester.mine_blocks(arbiter_vote_window)
@@ -916,7 +920,7 @@ def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
     eth_tester.mine_blocks(assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [True, False])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, False])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, True])
     vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True, True])
 
     eth_tester.mine_blocks(arbiter_vote_window)

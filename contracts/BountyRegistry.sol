@@ -99,14 +99,12 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     ArbiterStaking public staking;
     NectarToken internal token;
 
-    uint256 public constant BOUNTY_AMOUNT_MINIMUM = 2000000000000000000;
-    uint256 public constant ASSERTION_BID_ARTIFACT_MINIMUM = 62500000000000000;
-    uint256 public constant ASSERTION_BID_ARTIFACT_MAXIMUM = 1000000000000000000;
+    uint256 public constant BOUNTY_AMOUNT_MINIMUM = 2000000000000000000; // Per artifact
+    uint256 public constant ASSERTION_BID_ARTIFACT_MINIMUM = 62500000000000000; // Per artifact
+    uint256 public constant ASSERTION_BID_ARTIFACT_MAXIMUM = 1000000000000000000; // Per artifact
     uint256 public constant DEFAULT_BOUNTY_FEE = 62500000000000000;
     uint256 public constant DEFAULT_ASSERTION_FEE = 31250000000000000;
     uint256 public constant MAX_DURATION = 100; // BLOCKS
-    uint256 public constant MALICIOUS_VOTE_COEFFICIENT = 10;
-    uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
     uint256 public constant VALID_HASH_PERIOD = 256; // number of blocks in the past you can still get a blockhash
 
     uint256 public bountyFee;
@@ -483,10 +481,10 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
             }
 
             uint256 benignVotes = bountyVotes.length.sub(quorumVotes[i]);
-            uint256 maxBenignValue = arbiterCount.sub(quorumVotes[i]).mul(BENIGN_VOTE_COEFFICIENT);
-            uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
+            uint256 maxBenignValue = arbiterCount.sub(quorumVotes[i]);
+            uint256 maxMalValue = arbiterCount.sub(benignVotes);
 
-            if (quorumVotes[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue || benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+            if (quorumVotes[i] >= maxBenignValue || benignVotes > maxMalValue) {
                 tempQuorumMask = tempQuorumMask.add(calculateMask(i, 1));
                 quorumCount = quorumCount.add(1);
             }
@@ -567,7 +565,8 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
             for (uint i = 0; i < bounty.numArtifacts; i++) {
                 uint256 amount = amount[i];
                 ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
-                bool consensus = quorumVotes[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= votes.length.sub(quorumVotes[i]).mul(BENIGN_VOTE_COEFFICIENT);
+                // Tie goes to malicious
+                bool consensus = quorumVotes[i] >= votes.length.sub(quorumVotes[i]);
                 artifactBids[i] = new uint256[](assertions.length);
 
                 for (uint j = 0; j < assertions.length; j++) {
