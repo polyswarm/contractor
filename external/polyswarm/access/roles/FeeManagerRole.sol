@@ -14,7 +14,7 @@ contract FeeManagerRole {
         _feeManager = msg.sender;
     }
 
-        /** Function only callable by fee manager */
+    /** Function only callable by fee manager */
     modifier onlyFeeManager() {
         require(_feeManager == msg.sender);
         _;
