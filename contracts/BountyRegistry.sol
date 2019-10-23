@@ -599,7 +599,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
                     for (uint j = 0; j < assertions.length; j++) {
                         uint256 reward = 0;
                         Assertion storage assertion = assertions[j];
-                        if (assertions[j].mask & (1 << i) > 0) {
+                        if (assertion.mask & (1 << i) > 0) {
                             bool malicious = assertion.nonce == 0
                             ? !consensus
                             : (assertion.verdicts & assertion.mask) & (1 << i) != 0;
@@ -608,12 +608,12 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
                                 uint256 bid = artifactBids[i][j];
                                 reward = reward.add(bid);
                                 // Take a portion of the losing bids
-                                reward = bid.mul(ap.loserPool).div(ap.winnerPool);
+                                reward = bid.mul(ap.loserPool).div(ap.winnerPool).add(reward);
                                 // Take a portion of the amount (for this artifact)
                                 reward = bid.mul(amount).div(ap.winnerPool).add(reward);
                             }
                         }
-                        expertRewards[j] = expertRewards[j] + reward;
+                        expertRewards[j] = expertRewards[j].add(reward);
                     }
                 }
             }
