@@ -187,7 +187,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      * @param value some uint256 to count
      * @return number of set bits in the given value
      */
-    function countBits(uint256 value) public pure returns (uint256 result) {
+    function countBits(uint256 value) internal pure returns (uint256 result) {
         uint8[16] memory bits = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
         result = 0;
         uint256 modified = value;
@@ -209,7 +209,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      * @return uin256 that represents the bid for a specific artifact
 
      */
-    function getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) public pure returns (uint256 value) {
+    function getArtifactBid(uint256 mask, uint256[] memory bid, uint256 index) internal pure returns (uint256 value) {
         value = 0;
         if ((mask & (1 << index)) > 0) {
             // 256 is correct here, because we want to move the value at index off the page
@@ -222,7 +222,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      * Get the whole amount array for the given bounty
      * @param bountyGuid the guid for the requested bounty
      */
-    function getAmounts(uint128 bountyGuid) public view returns (uint256[] memory amounts) {
+    function getAmounts(uint128 bountyGuid) external view returns (uint256[] memory amounts) {
         require(bountiesByGuid[bountyGuid].author != address(0), "");
         amounts = amountsByGuid[bountyGuid];
     }
@@ -232,7 +232,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
      * @param bountyGuid the guid of the bounty asserted on
      * @param assertionId the id of the assertion to retrieve
      */
-    function getBids(uint128 bountyGuid, uint256 assertionId) public view returns (uint256[] memory bids) {
+    function getBids(uint128 bountyGuid, uint256 assertionId) external view returns (uint256[] memory bids) {
         require(bountiesByGuid[bountyGuid].author != address(0) && assertionBidByGuid[bountyGuid].length >= assertionId, "");
         bids = assertionBidByGuid[bountyGuid][assertionId];
     }

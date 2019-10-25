@@ -2116,98 +2116,98 @@ def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth
     assert NectarToken.functions.balanceOf(selected).call() > ARBITER_STARTING_BALANCE - stake_amount
 
 
-def test_count_bits_0(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0).call()
+def test_count_bits_0(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0).call()
 
     assert bits == 0
 
 
-def test_count_bits_1(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(1).call()
+def test_count_bits_1(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(1).call()
 
     assert bits == 1
 
 
-def test_count_bits_32_byte(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0xaabbccdd).call()
+def test_count_bits_32_byte(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0xaabbccdd).call()
 
     assert bits == 20
 
 
-def test_count_bits_64_byte(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0xaabbccddeeff0011).call()
+def test_count_bits_64_byte(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0xaabbccddeeff0011).call()
 
     assert bits == 36
 
 
-def test_count_bits_128_byte(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0xaabbccddeeff001122334455667788).call()
+def test_count_bits_128_byte(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0xaabbccddeeff001122334455667788).call()
 
     assert bits == 60
 
 
-def test_count_bits_256_byte(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0xaabbccddeeff001122334455667788aabbccddeeff001122334455667788).call()
+def test_count_bits_256_byte(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0xaabbccddeeff001122334455667788aabbccddeeff001122334455667788).call()
 
     assert bits == 120
 
 
-def test_get_artifact_bid_reads_proper_bid_values(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid0 = BountyRegistry.functions.getArtifactBid(5, [1, 30], 0).call()
-    bid1 = BountyRegistry.functions.getArtifactBid(5, [0, 30], 1).call()
-    bid2 = BountyRegistry.functions.getArtifactBid(5, [0, 30], 2).call()
+def test_get_artifact_bid_reads_proper_bid_values(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid0 = BountyRegistry.functions.testGetArtifactBid(5, [1, 30], 0).call()
+    bid1 = BountyRegistry.functions.testGetArtifactBid(5, [0, 30], 1).call()
+    bid2 = BountyRegistry.functions.testGetArtifactBid(5, [0, 30], 2).call()
 
     assert bid0 == 1
     assert bid1 == 0
     assert bid2 == 30
 
 
-def test_get_artifact_bid_one_field_gets_full_bid(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid = BountyRegistry.functions.getArtifactBid(1, [10], 0).call()
+def test_get_artifact_bid_one_field_gets_full_bid(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid = BountyRegistry.functions.testGetArtifactBid(1, [10], 0).call()
 
     assert bid == 10
 
 
-def test_get_artifact_bid_one_of_mulitple_gets_full_bid(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid = BountyRegistry.functions.getArtifactBid(0x100000000, [1000], 32).call()
+def test_get_artifact_bid_one_of_mulitple_gets_full_bid(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid = BountyRegistry.functions.testGetArtifactBid(0x100000000, [1000], 32).call()
 
     assert bid == 1000
 
 
-def test_get_artifact_bid_large_gap(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid0 = BountyRegistry.functions.getArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 0).call()
-    bid1 = BountyRegistry.functions.getArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 64).call()
-    bid2 = BountyRegistry.functions.getArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 255).call()
+def test_get_artifact_bid_large_gap(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid0 = BountyRegistry.functions.testGetArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 0).call()
+    bid1 = BountyRegistry.functions.testGetArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 64).call()
+    bid2 = BountyRegistry.functions.testGetArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 255).call()
 
     assert bid0 == 500
     assert bid1 == 0
     assert bid2 == 500
 
 
-def test_get_artifact_bid_all_artifacts_0_same(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid0 = BountyRegistry.functions.getArtifactBid(3, [500, 500], 0).call()
-    bid1 = BountyRegistry.functions.getArtifactBid(3, [500, 500], 1).call()
+def test_get_artifact_bid_all_artifacts_0_same(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid0 = BountyRegistry.functions.testGetArtifactBid(3, [500, 500], 0).call()
+    bid1 = BountyRegistry.functions.testGetArtifactBid(3, [500, 500], 1).call()
 
     assert bid0 == 500
     assert bid1 == 500
 
 
-def test_get_artifact_bid_full_255_portion(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
+def test_get_artifact_bid_full_255_portion(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
 
     choice = random.randint(0, 255)
-    assert BountyRegistry.functions.getArtifactBid(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, [10] * 256, choice).call() == 10
+    assert BountyRegistry.functions.testGetArtifactBid(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, [10] * 256, choice).call() == 10
 
 
 def test_get_bids(bounty_registry, eth_tester):
