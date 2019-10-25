@@ -48,7 +48,7 @@ test-linux:
   before_script:
     - apt-get update && apt-get install -y libudev-dev libusb-1.0-0-dev
   script:
-    - docker run $REPO_URL/$BASE_IMAGE_NAME:$CI_COMMIT_SHA tox
+    - docker run $REPO_URL/$BASE_IMAGE_NAME:$CI_COMMIT_SHA pytest -s --cov=contractor -n auto
 
 ###############################################################
 # End-to-end Stage
