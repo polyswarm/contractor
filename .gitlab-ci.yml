@@ -50,6 +50,7 @@ test-linux:
     - apt-get update && apt-get install -y libudev-dev libusb-1.0-0-dev
     - pip install -rrequirements.txt
     - pip install -rrequirements_test.txt
+    - python -m contractor install-solc
   script:
     - pytest -s --cov=contractor -n auto
 
