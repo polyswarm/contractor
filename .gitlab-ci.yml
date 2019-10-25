@@ -42,13 +42,15 @@ build-linux:
 ###############################################################
 
 test-linux:
+  image: $REPO_URL/$BASE_IMAGE_NAME:$CI_COMMIT_SHA
   stage: test
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   before_script:
     - apt-get update && apt-get install -y libudev-dev libusb-1.0-0-dev
+    - contractor compile
   script:
-    - docker run $REPO_URL/$BASE_IMAGE_NAME:$CI_COMMIT_SHA pytest -s --cov=contractor -n auto
+    - pytest -s --cov=contractor -n auto
 
 ###############################################################
 # End-to-end Stage
