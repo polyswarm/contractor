@@ -100,7 +100,7 @@ def post_assertion(bounty_registry, expert, bounty_guid, **kwargs):
 
     if not isinstance(args['mask'], int):
         if not args['bid']:
-            args['bid'] = [10 * 10 ** 18 for m in args['mask'] if m]
+            args['bid'] = [1 * 10 ** 18 for m in args['mask'] if m]
 
         args['mask'] = bool_list_to_int(args['mask'])
 
@@ -361,10 +361,11 @@ def test_bounty_round_reporting(bounty_registry, eth_tester):
     arbiters = BountyRegistry.arbiters
     duration = 10
 
+    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call() * 2
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
 
-    guid, _ = post_bounty(bounty_registry, ambassador.address, num_artifacts=2, duration=duration)
+    guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount_minimum, num_artifacts=2, duration=duration)
     assert BountyRegistry.functions.getCurrentRound(guid).call() == 0
 
     index0, nonce0, _ = post_assertion(bounty_registry, expert0.address, guid, mask=[True, True],
@@ -384,8 +385,10 @@ def test_bounty_round_reporting(bounty_registry, eth_tester):
     for arbiter in arbiters:
         vote_on_bounty(bounty_registry, arbiter.address, guid, [False, True])
 
-    eth_tester.mine_blocks(arbiter_vote_window)
     assert BountyRegistry.functions.getCurrentRound(guid).call() == 3
+
+    eth_tester.mine_blocks(arbiter_vote_window)
+    assert BountyRegistry.functions.getCurrentRound(guid).call() == 4
 
 
 def test_post_assertions(bounty_registry, eth_tester):
@@ -395,7 +398,7 @@ def test_post_assertions(bounty_registry, eth_tester):
     ambassador = BountyRegistry.ambassadors[0]
     expert = BountyRegistry.experts[0]
     duration = 10
-    bid = [10 * 10 ** 18]
+    bid = [1 * 10 ** 18]
 
     assertion_fee = BountyRegistry.functions.assertionFee().call()
 
@@ -548,7 +551,7 @@ def test_arbiter_settle_after_voting_ends(bounty_registry, eth_tester):
     arbiters = BountyRegistry.arbiters
     amount = 10 * 10 ** 18
     duration = 10
-    bid = [10 * 10 ** 18]
+    bid = [1 * 10 ** 18]
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -569,8 +572,8 @@ def test_arbiter_settle_after_voting_ends(bounty_registry, eth_tester):
     eth_tester.mine_blocks(assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [False])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [False])
-    vote_on_bounty(bounty_registry, arbiters[2].address, guid, [False])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True])
+    vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True])
     vote_on_bounty(bounty_registry, arbiters[3].address, guid, [True])
 
     eth_tester.mine_blocks(arbiter_vote_window)
@@ -613,7 +616,7 @@ def test_should_allow_voting_after_quorum_reached(bounty_registry, eth_tester):
     eth_tester.mine_blocks(duration + assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [True])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [False])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True])
 
 
 def test_rejects_arbiter_settles_before_voting_ends(bounty_registry, eth_tester):
@@ -622,12 +625,15 @@ def test_rejects_arbiter_settles_before_voting_ends(bounty_registry, eth_tester)
     ambassador = BountyRegistry.ambassadors[0]
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
-    arbiter = BountyRegistry.arbiters[0]
+    arbiter0 = BountyRegistry.arbiters[0]
+    arbiter1 = BountyRegistry.arbiters[1]
+    arbiter2 = BountyRegistry.arbiters[2]
     duration = 10
 
+    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call() * 2
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
 
-    guid, _ = post_bounty(bounty_registry, ambassador.address, num_artifacts=2, duration=duration)
+    guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount_minimum, num_artifacts=2, duration=duration)
 
     index0, nonce0, _ = post_assertion(bounty_registry, expert0.address, guid, mask=[True, True],
                                        verdicts=[False, False])
@@ -641,11 +647,13 @@ def test_rejects_arbiter_settles_before_voting_ends(bounty_registry, eth_tester)
 
     eth_tester.mine_blocks(assertion_reveal_window)
 
-    vote_on_bounty(bounty_registry, arbiter.address, guid, [True, True])
+    vote_on_bounty(bounty_registry, arbiter0.address, guid, [False, True])
+    vote_on_bounty(bounty_registry, arbiter1.address, guid, [False, True])
+    vote_on_bounty(bounty_registry, arbiter2.address, guid, [False, False])
 
     settle_bounty(bounty_registry, expert0.address, guid)
     with pytest.raises(TransactionFailed):
-        settle_bounty(bounty_registry, arbiter.address, guid)
+        settle_bounty(bounty_registry, arbiter0.address, guid)
 
 
 def test_settle_multi_artifact_bounty(bounty_registry, eth_tester):
@@ -656,9 +664,9 @@ def test_settle_multi_artifact_bounty(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiters = BountyRegistry.arbiters
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -681,7 +689,7 @@ def test_settle_multi_artifact_bounty(bounty_registry, eth_tester):
     eth_tester.mine_blocks(assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [False, True])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [False, True])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, True])
     vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True, True])
 
     eth_tester.mine_blocks(arbiter_vote_window)
@@ -713,9 +721,9 @@ def test_any_arbiter_settle_after_256_blocks(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiters = BountyRegistry.arbiters
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -738,7 +746,7 @@ def test_any_arbiter_settle_after_256_blocks(bounty_registry, eth_tester):
     eth_tester.mine_blocks(assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [False, True])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [False, True])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, True])
     vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True, True])
 
     eth_tester.mine_blocks(arbiter_vote_window)
@@ -771,9 +779,9 @@ def test_reach_quorum_if_all_vote_malicious_first(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiters = BountyRegistry.arbiters
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -816,7 +824,7 @@ def test_reach_quorum_if_all_vote_malicious_first(bounty_registry, eth_tester):
     assert NectarToken.functions.balanceOf(expert0.address).call() == \
            USER_STARTING_BALANCE + amount // 4 - bid[0] - assertion_fee
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
-           USER_STARTING_BALANCE + (3 * amount // 4) + bid[0] - assertion_fee
+           USER_STARTING_BALANCE + amount * 3 // 4 + bid[0] - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
            ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee
 
@@ -829,9 +837,9 @@ def test_reach_quorum_if_all_vote_malicious_second(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiters = BountyRegistry.arbiters
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -887,9 +895,9 @@ def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiters = BountyRegistry.arbiters
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -912,7 +920,7 @@ def test_unrevealed_assertions_incorrect(bounty_registry, eth_tester):
     eth_tester.mine_blocks(assertion_reveal_window)
 
     vote_on_bounty(bounty_registry, arbiters[0].address, guid, [True, False])
-    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, False])
+    vote_on_bounty(bounty_registry, arbiters[1].address, guid, [True, True])
     vote_on_bounty(bounty_registry, arbiters[2].address, guid, [True, True])
 
     eth_tester.mine_blocks(arbiter_vote_window)
@@ -1113,9 +1121,9 @@ def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_some_
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18]
+    bid = [1 * 10 ** 18]
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1167,7 +1175,7 @@ def test_should_refund_portion_of_bounty_to_ambassador_if_no_assertions_on_any_a
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
     bid = []
 
@@ -1220,9 +1228,9 @@ def test_payout_fee_bid_amount_to_one_expert_if_no_votes(bounty_registry, eth_te
 
     ambassador = BountyRegistry.ambassadors[0]
     expert = BountyRegistry.experts[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
@@ -1253,9 +1261,9 @@ def test_payout_fee_bid_amount_to_two_experts_if_no_votes(bounty_registry, eth_t
     ambassador = BountyRegistry.ambassadors[0]
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
@@ -1293,9 +1301,9 @@ def test_lose_bid_if_no_reveal(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1333,7 +1341,7 @@ def test_lose_bid_if_no_reveal(bounty_registry, eth_tester):
     assert NectarToken.functions.balanceOf(expert1.address).call() == \
            USER_STARTING_BALANCE - sum(bid) - assertion_fee
     assert NectarToken.functions.balanceOf(selected).call() == \
-           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee + sum(bid) * 2+ amount
+           ARBITER_STARTING_BALANCE - stake_amount + 2 * assertion_fee + bounty_fee + sum(bid) * 2 + amount
     assert NectarToken.functions.balanceOf(BountyRegistry.address).call() == 0
 
 
@@ -1345,7 +1353,7 @@ def test_payout_bid_to_expert_if_mask_zero(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
     bid = []
 
@@ -1396,9 +1404,9 @@ def test_payout_half_amount_lose_half_bid_when_half_right_half_wrong_one_expert(
     ambassador = BountyRegistry.ambassadors[0]
     expert = BountyRegistry.experts[0]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1447,9 +1455,9 @@ def test_payout_half_amount_lose_half_bid_when_half_right_half_wrong_two_experts
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1504,9 +1512,9 @@ def test_payout_when_two_experts_have_differing_incorrect_verdicts(bounty_regist
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1561,10 +1569,10 @@ def test_should_payout_amount_relative_to_bid_proportion(bounty_registry, eth_te
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid0 = [10 * 10 ** 18] * 2
-    bid1 = [20 * 10 ** 18, 10 * 10 ** 18]
+    bid0 = [5 * 10 ** 17] * 2
+    bid1 = [1 * 10 ** 18, 5 * 10 ** 17]
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1630,9 +1638,9 @@ def test_lost_nothing_if_wrong_with_false_mask(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = 10 * 10 ** 18
+    bid = 1 * 10 ** 18
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1687,10 +1695,10 @@ def test_bid_payout_matches_correct_verdict_bid(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid0 = [10 * 10 ** 18, 10 * 10 ** 18]
-    bid1 = [40 * 10 ** 18, 10 * 10 ** 18]
+    bid0 = [25 * 10 ** 16, 25 * 10 ** 16]
+    bid1 = [1 * 10 ** 18, 25 * 10 ** 16]
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1750,9 +1758,9 @@ def test_no_arbiter_payout_if_no_votes(bounty_registry, eth_tester):
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiters = BountyRegistry.arbiters
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
@@ -1789,7 +1797,7 @@ def test_no_arbiter_payout_if_no_assertions_and_no_votes(bounty_registry, eth_te
 
     ambassador = BountyRegistry.ambassadors[0]
     arbiters = BountyRegistry.arbiters
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
 
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
@@ -1815,7 +1823,7 @@ def test_payout_bounty_fee_to_arbiter_if_no_votes(bounty_registry, eth_tester):
 
     ambassador = BountyRegistry.ambassadors[0]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
@@ -1853,9 +1861,9 @@ def test_payout_bounty_fee_and_assertion_fees_to_arbiter(bounty_registry, eth_te
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1904,9 +1912,9 @@ def test_payout_all_to_arbiter_if_every_expert_wrong(bounty_registry, eth_tester
     expert0 = BountyRegistry.experts[0]
     expert1 = BountyRegistry.experts[1]
     arbiter = BountyRegistry.arbiters[0]
-    amount = 10 * 10 ** 18
+    amount = 10 * 10 ** 18 * 2
     duration = 10
-    bid = [10 * 10 ** 18] * 2
+    bid = [1 * 10 ** 18] * 2
 
     bounty_fee = BountyRegistry.functions.bountyFee().call()
     assertion_fee = BountyRegistry.functions.assertionFee().call()
@@ -1956,7 +1964,7 @@ def test_payout_so_arbiter_one_expert_profit_using_minimums(bounty_registry, eth
     arbiter = BountyRegistry.arbiters[0]
     duration = 10
 
-    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()
+    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call() * 2
     bid_minimum = [BountyRegistry.functions.ASSERTION_BID_ARTIFACT_MINIMUM().call()] * 2
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
@@ -2003,7 +2011,7 @@ def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth
     arbiter = BountyRegistry.arbiters[0]
     duration = 10
 
-    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()
+    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call() * 2
     bid_minimum = [BountyRegistry.functions.ASSERTION_BID_ARTIFACT_MINIMUM().call()] * 2
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     stake_amount = BountyRegistry.stake_amount
@@ -2045,98 +2053,98 @@ def test_payout_so_arbiter_two_expert_profit_using_minimums(bounty_registry, eth
     assert NectarToken.functions.balanceOf(selected).call() > ARBITER_STARTING_BALANCE - stake_amount
 
 
-def test_count_bits_0(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0).call()
+def test_count_bits_0(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0).call()
 
     assert bits == 0
 
 
-def test_count_bits_1(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(1).call()
+def test_count_bits_1(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(1).call()
 
     assert bits == 1
 
 
-def test_count_bits_32_byte(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0xaabbccdd).call()
+def test_count_bits_32_byte(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0xaabbccdd).call()
 
     assert bits == 20
 
 
-def test_count_bits_64_byte(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0xaabbccddeeff0011).call()
+def test_count_bits_64_byte(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0xaabbccddeeff0011).call()
 
     assert bits == 36
 
 
-def test_count_bits_128_byte(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0xaabbccddeeff001122334455667788).call()
+def test_count_bits_128_byte(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0xaabbccddeeff001122334455667788).call()
 
     assert bits == 60
 
 
-def test_count_bits_256_byte(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bits = BountyRegistry.functions.countBits(0xaabbccddeeff001122334455667788aabbccddeeff001122334455667788).call()
+def test_count_bits_256_byte(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bits = BountyRegistry.functions.testCountBits(0xaabbccddeeff001122334455667788aabbccddeeff001122334455667788).call()
 
     assert bits == 120
 
 
-def test_get_artifact_bid_reads_proper_bid_values(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid0 = BountyRegistry.functions.getArtifactBid(5, [1, 30], 0).call()
-    bid1 = BountyRegistry.functions.getArtifactBid(5, [0, 30], 1).call()
-    bid2 = BountyRegistry.functions.getArtifactBid(5, [0, 30], 2).call()
+def test_get_artifact_bid_reads_proper_bid_values(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid0 = BountyRegistry.functions.testGetArtifactBid(5, [1, 30], 0).call()
+    bid1 = BountyRegistry.functions.testGetArtifactBid(5, [0, 30], 1).call()
+    bid2 = BountyRegistry.functions.testGetArtifactBid(5, [0, 30], 2).call()
 
     assert bid0 == 1
     assert bid1 == 0
     assert bid2 == 30
 
 
-def test_get_artifact_bid_one_field_gets_full_bid(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid = BountyRegistry.functions.getArtifactBid(1, [10], 0).call()
+def test_get_artifact_bid_one_field_gets_full_bid(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid = BountyRegistry.functions.testGetArtifactBid(1, [10], 0).call()
 
     assert bid == 10
 
 
-def test_get_artifact_bid_one_of_mulitple_gets_full_bid(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid = BountyRegistry.functions.getArtifactBid(0x100000000, [1000], 32).call()
+def test_get_artifact_bid_one_of_mulitple_gets_full_bid(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid = BountyRegistry.functions.testGetArtifactBid(0x100000000, [1000], 32).call()
 
     assert bid == 1000
 
 
-def test_get_artifact_bid_large_gap(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid0 = BountyRegistry.functions.getArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 0).call()
-    bid1 = BountyRegistry.functions.getArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 64).call()
-    bid2 = BountyRegistry.functions.getArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 255).call()
+def test_get_artifact_bid_large_gap(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid0 = BountyRegistry.functions.testGetArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 0).call()
+    bid1 = BountyRegistry.functions.testGetArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 64).call()
+    bid2 = BountyRegistry.functions.testGetArtifactBid(0x8000000000000000000000000000000000000000000000000000000000000001, [500, 500], 255).call()
 
     assert bid0 == 500
     assert bid1 == 0
     assert bid2 == 500
 
 
-def test_get_artifact_bid_all_artifacts_0_same(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
-    bid0 = BountyRegistry.functions.getArtifactBid(3, [500, 500], 0).call()
-    bid1 = BountyRegistry.functions.getArtifactBid(3, [500, 500], 1).call()
+def test_get_artifact_bid_all_artifacts_0_same(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
+    bid0 = BountyRegistry.functions.testGetArtifactBid(3, [500, 500], 0).call()
+    bid1 = BountyRegistry.functions.testGetArtifactBid(3, [500, 500], 1).call()
 
     assert bid0 == 500
     assert bid1 == 500
 
 
-def test_get_artifact_bid_full_255_portion(bounty_registry):
-    BountyRegistry = bounty_registry.BountyRegistry
+def test_get_artifact_bid_full_255_portion(test_bounty_registry):
+    BountyRegistry = test_bounty_registry.TestBountyRegistry
 
     choice = random.randint(0, 255)
-    assert BountyRegistry.functions.getArtifactBid(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, [10] * 256, choice).call() == 10
+    assert BountyRegistry.functions.testGetArtifactBid(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, [10] * 256, choice).call() == 10
 
 
 def test_get_bids(bounty_registry, eth_tester):
@@ -2147,7 +2155,7 @@ def test_get_bids(bounty_registry, eth_tester):
     arbiter = BountyRegistry.arbiters[0]
     duration = 10
 
-    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()
+    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call() * 2
     bid_minimum = [BountyRegistry.functions.ASSERTION_BID_ARTIFACT_MINIMUM().call()] * 2
     assertion_reveal_window = BountyRegistry.functions.assertionRevealWindow().call()
     arbiter_vote_window = BountyRegistry.arbiter_vote_window
@@ -2196,7 +2204,7 @@ def test_get_bids_bad_assertion(bounty_registry, eth_tester):
     expert = BountyRegistry.experts[0]
     duration = 10
 
-    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call()
+    amount_minimum = BountyRegistry.functions.BOUNTY_AMOUNT_MINIMUM().call() * 2
     bid_minimum = [BountyRegistry.functions.ASSERTION_BID_ARTIFACT_MINIMUM().call()] * 2
 
     guid, _ = post_bounty(bounty_registry, ambassador.address, amount=amount_minimum, num_artifacts=2,

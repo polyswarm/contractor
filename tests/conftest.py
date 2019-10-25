@@ -72,12 +72,13 @@ class NectarToken(TestContract):
 
 
 class BountyRegistry(TestContract):
-    def __init__(self, nectar_token, stake_amount, arbiter_vote_window, ambassadors, experts, arbiters, fee_manager,
+    def __init__(self, nectar_token, stake_amount, arbiter_vote_window, assertion_reveal_window, ambassadors, experts, arbiters, fee_manager,
                  window_manager):
         super().__init__()
         self.nectar_token = nectar_token
         self.stake_amount = stake_amount
         self.arbiter_vote_window = arbiter_vote_window
+        self.assertion_reveal_window = assertion_reveal_window
         self.ambassadors = ambassadors
         self.experts = experts
         self.arbiters = arbiters
@@ -86,7 +87,51 @@ class BountyRegistry(TestContract):
         self.window_manager = window_manager
 
     def config(self, chain):
-        return {'arbiters': [a.address for a in self.arbiters], 'arbiter_vote_window': self.arbiter_vote_window}
+        return {
+            'arbiters': [a.address for a in self.arbiters],
+            'arbiter_vote_window': self.arbiter_vote_window,
+            'assertion_reveal_window': self.assertion_reveal_window
+        }
+
+
+class TestBountyRegistryContract(BountyRegistry):
+    pass
+
+
+class TestBountyRegistry(steps.Step):
+    DEPENDENCIES = {'NectarToken', 'ArbiterStaking'}
+
+    def run(self, network, deployer):
+        """Run the deployment.
+
+        :param network: Network being deployed to
+        :param deployer: Deployer for deploying and transacting with contracts
+        :return: None
+        """
+        nectar_token_address = deployer.contracts['NectarToken'].address
+        arbiter_staking_address = deployer.contracts['ArbiterStaking'].address
+
+        contract_config = network.contract_config.get('TestBountyRegistry', {})
+        arbiter_vote_window = contract_config.get('arbiter_vote_window', 100)
+        assertion_reveal_window = contract_config.get('assertion_reveal_window', 10)
+        arbiters = [network.normalize_address(a) for a in contract_config.get('arbiters', [])]
+
+        contract = deployer.deploy('TestBountyRegistry',
+                                   nectar_token_address,
+                                   arbiter_staking_address,
+                                   arbiter_vote_window,
+                                   assertion_reveal_window)
+
+        txhash = deployer.transact(
+            deployer.contracts['ArbiterStaking'].functions.setBountyRegistry(contract.address))
+        network.wait_and_check_transaction(txhash)
+
+        txhashes = []
+        for arbiter in arbiters:
+            txhashes.append(deployer.transact(
+                deployer.contracts['TestBountyRegistry'].functions.addArbiter(arbiter, network.block_number())))
+
+        network.wait_and_check_transactions(txhashes)
 
 
 class ArbiterStaking(TestContract):
@@ -122,9 +167,11 @@ def artifacts():
     basedir = os.path.join(os.path.dirname(__file__), '..')
     srcdir = os.path.join(basedir, 'contracts')
     extdir = os.path.join(basedir, 'external')
-    outdir = tempfile.mkdtemp()
+    testdir = os.path.join(basedir, 'tests', 'contracts')
+    outdir = os.path.join(basedir, 'build')
 
-    compile_directory(DEFAULT_SOLC_VERSION, srcdir, outdir, extdir)
+    compile_directory(DEFAULT_SOLC_VERSION, srcdir, outdir, [extdir])
+    compile_directory(DEFAULT_SOLC_VERSION, testdir, outdir, [srcdir, extdir])
 
     yield outdir
 
@@ -199,7 +246,7 @@ def bounty_registry(artifacts, eth_tester, web3):
 
     users = ambassadors + experts
     nectar_token = NectarToken(users, arbiters)
-    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, ambassadors, experts, arbiters,
+    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, 10, ambassadors, experts, arbiters,
                                      fee_manager, window_manager)
     arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, 100, arbiters[0])
 
@@ -230,6 +277,52 @@ def bounty_registry(artifacts, eth_tester, web3):
 
 
 @pytest.fixture
+def test_bounty_registry(artifacts, eth_tester, web3):
+    chain = Chain.HOMECHAIN
+    ambassadors = [TestAccount(eth_tester) for _ in range(3)]
+    experts = [TestAccount(eth_tester) for _ in range(2)]
+    arbiters = [TestAccount(eth_tester) for _ in range(4)]
+    fee_manager = TestAccount(eth_tester)
+    window_manager = TestAccount(eth_tester)
+
+    users = ambassadors + experts
+    nectar_token = NectarToken(users, arbiters)
+    test_bounty_registry = TestBountyRegistryContract(nectar_token, 10000000 * 10 ** 18, 100, 10, ambassadors, experts,
+                                                      arbiters, fee_manager, window_manager)
+    arbiter_staking = ArbiterStaking(nectar_token, test_bounty_registry, 100, arbiters[0])
+
+    config = {
+        'NectarToken': nectar_token.config(chain),
+        'TestBountyRegistry': test_bounty_registry.config(chain),
+        'ArbiterStaking': arbiter_staking.config(chain),
+    }
+
+    network, deployer = deploy(config, chain, artifacts, eth_tester, web3)
+
+    nectar_token.bind(deployer.contracts['NectarToken'])
+    nectar_token.owner = network.address
+    test_bounty_registry.bind(deployer.contracts['TestBountyRegistry'])
+    test_bounty_registry.owner = network.address
+    arbiter_staking.bind(deployer.contracts['ArbiterStaking'])
+    arbiter_staking.owner = network.address
+
+    # Stake all arbiters to avoid settle div by zero
+    for arbiter in arbiters:
+        nectar_token.functions.approve(arbiter_staking.address, test_bounty_registry.stake_amount).transact(
+            {'from': arbiter.address})
+        arbiter_staking.functions.deposit(test_bounty_registry.stake_amount).transact({'from': arbiter.address})
+
+    TestBountyRegistryFixture = namedtuple('TestBountyRegistryFixture',
+                                           ('network',
+                                            'deployer',
+                                            'NectarToken',
+                                            'TestBountyRegistry',
+                                            'ArbiterStaking')
+                                           )
+    return TestBountyRegistryFixture(network, deployer, nectar_token, test_bounty_registry, arbiter_staking)
+
+
+@pytest.fixture
 def arbiter_staking(artifacts, eth_tester, web3):
     chain = Chain.HOMECHAIN
     arbiter = TestAccount(eth_tester)
@@ -237,7 +330,7 @@ def arbiter_staking(artifacts, eth_tester, web3):
     window_manager = TestAccount(eth_tester)
 
     nectar_token = NectarToken([], [arbiter])
-    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, [], [], [arbiter], fee_manager,
+    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, 10, [], [], [arbiter], fee_manager,
                                      window_manager)
     arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, 100, arbiter)
 
@@ -268,7 +361,7 @@ def arbiter_long_staking(artifacts, eth_tester, web3):
     window_manager = TestAccount(eth_tester)
 
     nectar_token = NectarToken([], [arbiter])
-    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, [], [], [arbiter], fee_manager,
+    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, 10, [], [], [arbiter], fee_manager,
                                      window_manager)
     arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, 100000, arbiter)
 

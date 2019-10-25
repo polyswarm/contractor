@@ -9,7 +9,7 @@ DEFAULT_SOLC_VERSION = 'v0.5.3'
 logger = logging.getLogger(__name__)
 
 
-def __compiler_input_from_directory(src_dir, ext_dir=None):
+def __compiler_input_from_directory(src_dir, ext_dirs=None):
     """Generate input JSON for solc given directories of contracts to compile.
 
     :param src_dir: Directory containing contract Solidity source
@@ -28,9 +28,10 @@ def __compiler_input_from_directory(src_dir, ext_dir=None):
     logger.info('Compiling %s', ', '.join(sources.keys()))
 
     remappings = []
-    if ext_dir:
-        for ext in os.listdir(ext_dir):
-            remappings.append(ext + '=' + os.path.join(ext_dir, ext))
+    if ext_dirs:
+        for ext_dir in ext_dirs:
+            for ext in os.listdir(ext_dir):
+                remappings.append(ext + '=' + os.path.join(ext_dir, ext))
 
     ret = {
         'language': 'Solidity',
@@ -111,22 +112,22 @@ def configure_compiler(solc_version):
     return solc_path
 
 
-def compile_directory(solc_version, src_dir, out_dir, ext_dir=None):
+def compile_directory(solc_version, src_dir, out_dir, ext_dirs=None):
     """Compile a directory of contracts into output JSON.
 
     :param solc_version: Version of solc to use
     :param src_dir: Directory containing contract Solidity source
     :param out_dir: Directory to output compiled JSON into
-    :param ext_dir: Directory containing external dependencies
+    :param ext_dirs: List of directories containing external dependencies
     :return: True if contracts have changed, else False
     """
     configure_compiler(solc_version)
 
     kwargs = {}
-    if ext_dir:
-        kwargs['allow_paths'] = os.path.abspath(ext_dir)
+    if ext_dirs:
+        kwargs['allow_paths'] = ','.join((os.path.abspath(ext_dir) for ext_dir in ext_dirs))
 
-    input = __compiler_input_from_directory(src_dir, ext_dir)
+    input = __compiler_input_from_directory(src_dir, ext_dirs)
     source_files = input['sources'].keys()
     output = compile_standard(input, **kwargs)
     # TODO: Compilation errors will be reported via a SolcError, should report these in a friendlier manner
