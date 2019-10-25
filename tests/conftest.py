@@ -308,9 +308,9 @@ def test_bounty_registry(artifacts, eth_tester, web3):
 
     # Stake all arbiters to avoid settle div by zero
     for arbiter in arbiters:
-        nectar_token.functions.approve(arbiter_staking.address, bounty_registry.stake_amount).transact(
+        nectar_token.functions.approve(arbiter_staking.address, test_bounty_registry.stake_amount).transact(
             {'from': arbiter.address})
-        arbiter_staking.functions.deposit(bounty_registry.stake_amount).transact({'from': arbiter.address})
+        arbiter_staking.functions.deposit(test_bounty_registry.stake_amount).transact({'from': arbiter.address})
 
     TestBountyRegistryFixture = namedtuple('TestBountyRegistryFixture',
                                            ('network',
@@ -330,7 +330,7 @@ def arbiter_staking(artifacts, eth_tester, web3):
     window_manager = TestAccount(eth_tester)
 
     nectar_token = NectarToken([], [arbiter])
-    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, [], [], [arbiter], fee_manager,
+    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, 10, [], [], [arbiter], fee_manager,
                                      window_manager)
     arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, 100, arbiter)
 
@@ -361,7 +361,7 @@ def arbiter_long_staking(artifacts, eth_tester, web3):
     window_manager = TestAccount(eth_tester)
 
     nectar_token = NectarToken([], [arbiter])
-    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, [], [], [arbiter], fee_manager,
+    bounty_registry = BountyRegistry(nectar_token, 10000000 * 10 ** 18, 100, 10, [], [], [arbiter], fee_manager,
                                      window_manager)
     arbiter_staking = ArbiterStaking(nectar_token, bounty_registry, 100000, arbiter)
 
