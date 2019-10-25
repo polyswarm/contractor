@@ -42,7 +42,7 @@ def install_solc(ctx, solc_version):
               help='Directory containing the solidity source to compile')
 @click.option('-o', '--outdir', type=click.Path(file_okay=False), default='build',
               help='Directory to store the compiled json output for later deployment')
-@click.option('-e', '--external', type=click.Path(exists=True, file_okay=False), default='external',
+@click.option('-e', '--external', type=click.Path(exists=True, file_okay=False), multiple=True, default=['external'],
               help='Directory containing any external libraries used')
 @click.pass_context
 def compile(ctx, solc_version, srcdir, outdir, external):
