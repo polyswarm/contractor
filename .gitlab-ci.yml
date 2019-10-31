@@ -86,4 +86,6 @@ kick-after-complete:
   stage: kick
   only:
     - master
+  variables:
+    BASE_IMAGE_NAME: ci-image
   trigger: externalci/ci-image
