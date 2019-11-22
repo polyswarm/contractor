@@ -39,6 +39,7 @@ contracts:
       - "0x69d568837a75cd385ce6cafa176d878a1d3dc18f"
   ERC20Relay:
     fee_wallet: "0xa3d1d29a6dd0c6387dba2b1c1ddd4630d93703ef"
+    fee_manager: "0xa3d1d29a6dd0c6387dba2b1c1ddd4630d93703ef"
     verifiers:
       - "0x2f7975662b26713d20581767db60f5a11199b749"
       - "0xcfeb9f817749cca3319a35b45aceaef5b14b4965"
