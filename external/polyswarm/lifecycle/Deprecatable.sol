@@ -9,12 +9,16 @@ import "../access/roles/DeprecatorRole.sol";
  * @dev Base contract which allows children to implement an emergency stop mechanism.
  */
 contract Deprecatable is DeprecatorRole {
-    event Deprecated();
+    event Deprecated(
+        bool seamless
+    );
+    event Undeprecated();
 
     uint256 public deprecatedBlock;
 
     constructor () internal {
         deprecatedBlock = 0;
+
     }
 
     /** Function only callable when not deprecated */
@@ -27,8 +31,17 @@ contract Deprecatable is DeprecatorRole {
      * Deprecate this contract
      * The contract disables new bounties, but allows other parts to function
      */
-    function deprecate() external onlyDeprecator whenNotDeprecated {
+    function deprecate(bool seamless) external onlyDeprecator whenNotDeprecated {
         deprecatedBlock = block.number;
-        emit Deprecated();
+        emit Deprecated(seamless);
+    }
+
+    /**
+     * Undeprecate this contract
+     * The re-enables anything disabled by deprecation
+     */
+    function undeprecate() external onlyDeprecator whenNotDeprecated {
+        deprecatedBlock = block.number;
+        emit Undeprecated();
     }
 }
