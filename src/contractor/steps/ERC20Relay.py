@@ -32,6 +32,7 @@ class ERC20Relay(Step):
         contract_config = network.contract_config.get(CONTRACT_NAME, {})
         nct_eth_exchange_rate = contract_config.get('nct_eth_exchange_rate', NCT_ETH_EXCHANGE_RATE)
         fee_wallet = network.normalize_address(contract_config.get('fee_wallet'))
+        fee_manager = contract_config.get('fee_manager', None)
         verifiers = [network.normalize_address(a) for a in contract_config.get('verifiers')]
 
         # Need to mint tokens on the sidechain for the relay contract equal to homechain total supply
@@ -64,6 +65,11 @@ class ERC20Relay(Step):
 
             logger.info('Minting NCT equal to total supply to relay contract %s on sidechain', contract.address)
             txhash = deployer.transact(deployer.contracts['NectarToken'].functions.mint(contract.address, total_supply))
+            network.wait_and_check_transaction(txhash)
+
+        if fee_manager is not None:
+            fee_manager = network.normalize_address(fee_manager)
+            txhash = deployer.transact(deployer.contracts['ERC20Relay'].functions.setFeeManager(fee_manager))
             network.wait_and_check_transaction(txhash)
 
     def deactivate(self, network, deployer):
