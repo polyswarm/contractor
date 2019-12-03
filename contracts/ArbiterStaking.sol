@@ -249,7 +249,7 @@ contract ArbiterStaking is Pausable, Ownable {
     function isDeprecated() public view returns (bool) {
         uint256 longest_bounty = registry.MAX_DURATION().add(registry.assertionRevealWindow()).add(registry.arbiterVoteWindow());
         // is registry deprecated  && is arbiter staking NOT being rolled over  && Have all the bounties finished
-        return registry.deprecatedBlock() > 0 && !registry.seamless() && block.number >= registry.deprecatedBlock().add(longest_bounty);
+        return registry.deprecatedBlock() > 0 && !registry.rollover() && block.number >= registry.deprecatedBlock().add(longest_bounty);
     }
 
     /**

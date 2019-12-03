@@ -10,16 +10,16 @@ import "../access/roles/DeprecatorRole.sol";
  */
 contract Deprecatable is DeprecatorRole {
     event Deprecated(
-        bool seamless
+        bool rollover
     );
     event Undeprecated();
 
     uint256 public deprecatedBlock;
+    bool public rollover;
 
     constructor () internal {
         deprecatedBlock = 0;
-        seamless = False;
-
+        rollover = false;
     }
 
     /** Function only callable when not deprecated */
@@ -38,10 +38,10 @@ contract Deprecatable is DeprecatorRole {
      * Deprecate this contract
      * The contract disables new bounties, but allows other parts to function
      */
-    function deprecate(bool _seamless) external onlyDeprecator whenNotDeprecated {
+    function deprecate(bool _rollover) external onlyDeprecator whenNotDeprecated {
         deprecatedBlock = block.number;
-        seamless = _seamless;
-        emit Deprecated(seamless);
+        rollover = _rollover;
+        emit Deprecated(rollover);
     }
 
     /**
@@ -50,7 +50,7 @@ contract Deprecatable is DeprecatorRole {
      */
     function undeprecate() external onlyDeprecator whenDeprecated {
         deprecatedBlock = block.number;
-        seamless = false;
+        rollover = false;
         emit Undeprecated();
     }
 }
