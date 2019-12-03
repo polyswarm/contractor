@@ -335,6 +335,59 @@ def deactivate(ctx):
               help='What community we are deploying for')
 @click.option('--network', required=True,
               help='What network to deactivate')
+@click.option('--chain', type=click.Choice(('home', 'side')), required=True,
+              help='Is this deployment on the homechain or sidechain?')
+@click.option('--keyfile', envvar='KEYFILE', type=click.File('r'),
+              help='Path to private key json file used to deploy')
+@click.option('--password', envvar='PASSWORD',
+              help='Password used to decrypt private key')
+@click.option('--trezor', is_flag=True,
+              help='Sign transactions with a Trezor')
+@click.option('--trezor-path', envvar='TREZOR_PATH',
+              help='Path to Trezor device')
+@click.option('--derivation-path', default='m/44\'/60\'/0\'/0/0',
+              help='Derivation path of key to use on Trezor')
+@click.option('-a', '--artifactdir', type=click.Path(exists=True, file_okay=False), default='build',
+              help='Directory containing the compiled artifacts to deploy')
+@click.option('-i', '--input', type=click.Path(dir_okay=False), required=False,
+              help='Input file containing the deployed addresses of our artifacts')
+@click.option('-t', '--timeout', type=int, default=60,
+              help='Time to wait for input file to exist')
+@click.argument('contract',
+                help="Contract name to deactivate")
+@click.pass_context
+def contract(ctx, config, community, network, chain, keyfile, password, trezor, trezor_path, derivation_path,
+              artifactdir, input, timeout, contract):
+    config = Config.from_yaml(config, Chain.from_str(chain))
+
+    if network not in config.network_configs:
+        click.echo('No such network {0} defined, check configuration', network)
+        sys.exit(1)
+
+    network = configure_network(config, network, keyfile, password, trezor, trezor_path, derivation_path)
+
+    deployer = Deployer(community, network, artifactdir)
+
+    # Default to homechain.json/sidechain.json
+    input_file = input or (chain + 'chain.json')
+
+    click.echo('Waiting for deployment results')
+    if not wait_for_file(input_file, timeout):
+        click.echo('Timeout waiting for deployment results file')
+        sys.exit(1)
+
+    with open(input, 'r') as f:
+        deployer.load_results(f)
+
+    steps.run(network, deployer, to_deploy=contract, deactivate=True)
+
+@deactivate.command()
+@click.option('--config', envvar='CONFIG', type=click.File('r'), required=True,
+              help='Path to yaml config file defining networks and users')
+@click.option('--community', envvar='COMMUNITY', required=True,
+              help='What community we are deploying for')
+@click.option('--network', required=True,
+              help='What network to deactivate')
 @click.option('--keyfile', envvar='KEYFILE', type=click.File('r'),
               help='Path to private key json file used to deploy')
 @click.option('--password', envvar='PASSWORD',
