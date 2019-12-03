@@ -79,6 +79,11 @@ class ERC20Relay(Step):
         :param deployer: deployer for deprecating and transacting resolving in progress tasks
         :return: None
         """
+        # Wait until the vote window closed (BountyRegistry already waited on others)
+        voteWindow = deployer.contracts['BountyRegistry'].functions.arbiterVoteWindow().call()
+        network.wait_for_blocks((voteWindow) * 2)
+
+        # Trigger flush
         txhash = deployer.transact(deployer.contracts['ERC20Relay'].functions.flush())
         network.wait_and_check_transaction(txhash)
 

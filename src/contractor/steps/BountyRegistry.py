@@ -54,10 +54,13 @@ class BountyRegistry(Step):
         :param deployer: Deployer for tearing down this contract and transacting resolving in progress tasks
         :return: None
         """
-        txhash = deployer.transact(deployer.contracts['BountyRegistry'].functions.deprecate())
+        contract_config = network.contract_config.get(CONTRACT_NAME, {})
+        # This is True when we don't want to trigger arbiter withdrawals
+        rollover = contract_config.get('rollover', False)
+        txhash = deployer.transact(deployer.contracts['BountyRegistry'].functions.deprecate(rollover))
+
         network.wait_and_check_transaction(txhash)
 
         revealWindow = deployer.contracts['BountyRegistry'].functions.assertionRevealWindow().call()
-        voteWindow = deployer.contracts['BountyRegistry'].functions.arbiterVoteWindow().call()
         max_duration = deployer.contracts['BountyRegistry'].functions.MAX_DURATION().call()
-        network.wait_for_blocks((revealWindow + voteWindow + max_duration) * 2)
+        network.wait_for_blocks((revealWindow + max_duration) * 2)

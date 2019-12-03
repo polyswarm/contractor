@@ -33,7 +33,9 @@ contracts:
       - "0x7a5a8d58c637fc9586034c9d15fcdbe75453af46"
       - "0x3978005e1868a74a59fbdaead2b4a3dffb7261fd"
       - "0xc7ef8e97743bf867be0da864c7e2ae67428a507b"
+  ArbiterStaking:
   BountyRegistry:
+    rollover: yes
     arbiters:
       - "0x29f9c138f445dde9330361b4dcf3db635fab2672"
       - "0x69d568837a75cd385ce6cafa176d878a1d3dc18f"
