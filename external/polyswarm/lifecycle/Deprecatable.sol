@@ -18,6 +18,7 @@ contract Deprecatable is DeprecatorRole {
 
     constructor () internal {
         deprecatedBlock = 0;
+        seamless = False;
 
     }
 
@@ -27,21 +28,29 @@ contract Deprecatable is DeprecatorRole {
         _;
     }
 
+    /** Function only callable when deprecated */
+    modifier whenDeprecated() {
+        require(deprecatedBlock > 0);
+        _;
+    }
+
     /**
      * Deprecate this contract
      * The contract disables new bounties, but allows other parts to function
      */
-    function deprecate(bool seamless) external onlyDeprecator whenNotDeprecated {
+    function deprecate(bool _seamless) external onlyDeprecator whenNotDeprecated {
         deprecatedBlock = block.number;
+        seamless = _seamless;
         emit Deprecated(seamless);
     }
 
     /**
-     * Undeprecate this contract
+     * Undo deprecate om this contract
      * The re-enables anything disabled by deprecation
      */
-    function undeprecate() external onlyDeprecator whenNotDeprecated {
+    function undeprecate() external onlyDeprecator whenDeprecated {
         deprecatedBlock = block.number;
+        seamless = false;
         emit Undeprecated();
     }
 }
