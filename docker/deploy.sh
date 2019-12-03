@@ -18,12 +18,12 @@ contractor compile -o consul
 
 if [[ -f "consul/sidechain.json" ]]; then
     echo "Deactivating existing sidechain BountyRegistry"
-    contractor deactivate --chain side --network $SIDECHAIN --keyfile $SIDECHAIN_KEYFILE -a consul -o consul/sidechain.json BountyRegistry
+    contractor deactivate contract --chain side --network $SIDECHAIN --keyfile $SIDECHAIN_KEYFILE -a consul -i consul/sidechain.json BountyRegistry
 fi
 
 if [[ -f "consul/homechain.json" ]]; then
     echo "Deactivating existing homechain BountyRegistry"
-    contractor deactivate --chain home --network $HOMECHAIN --keyfile $HOMECHAIN_KEYFILE -a consul -o consul/homechain.json BountyRegistry
+    contractor deactivate contract --chain home --network $HOMECHAIN --keyfile $HOMECHAIN_KEYFILE -a consul -i consul/homechain.json BountyRegistry
 fi
 
 # Deploy to sidechain first, as it's cheaper (free) in the case of failure
