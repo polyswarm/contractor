@@ -353,8 +353,7 @@ def deactivate(ctx):
               help='Input file containing the deployed addresses of our artifacts')
 @click.option('-t', '--timeout', type=int, default=60,
               help='Time to wait for input file to exist')
-@click.argument('contract',
-                help="Contract name to deactivate")
+@click.argument('contract')
 @click.pass_context
 def contract(ctx, config, community, network, chain, keyfile, password, trezor, trezor_path, derivation_path,
               artifactdir, input, timeout, contract):
@@ -380,6 +379,7 @@ def contract(ctx, config, community, network, chain, keyfile, password, trezor, 
         deployer.load_results(f)
 
     steps.run(network, deployer, to_deploy=contract, deactivate=True)
+
 
 @deactivate.command()
 @click.option('--config', envvar='CONFIG', type=click.File('r'), required=True,
