@@ -16,7 +16,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "1.5.0";
+    string public constant VERSION = "1.6.0";
 
     enum ArtifactType {FILE, URL, _END}
 
