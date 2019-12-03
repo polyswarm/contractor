@@ -213,10 +213,20 @@ def test_emit_event_deprecate(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
     network = bounty_registry.network
 
-    txhash = BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
+    txhash = BountyRegistry.functions.deprecate(False).transact({"from": BountyRegistry.owner})
 
     deprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
     assert deprecate is not None
+
+
+def test_emit_event_deprecate_rollover(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    txhash = BountyRegistry.functions.deprecate(True).transact({"from": BountyRegistry.owner})
+
+    deprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+    assert deprecate is not None and deprecate[0]
 
 
 def test_post_bounty(bounty_registry):
@@ -280,7 +290,7 @@ def test_post_bounty_deprecated(bounty_registry):
     uri = random_artifact_uri()
     amount = 10 * 10 ** 18
 
-    BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
+    BountyRegistry.functions.deprecate(False).transact({"from": BountyRegistry.owner})
 
     with pytest.raises(TransactionFailed):
         post_bounty(bounty_registry, ambassador.address, guid=guid, artifact_type=0, uri=uri, amount=amount)
