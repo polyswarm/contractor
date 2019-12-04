@@ -2,7 +2,6 @@ pragma solidity ^0.5.0;
 
 
 contract VerifierManagerRole {
-
     event NewVerifierManager(
         address indexed previousManager,
         address indexed newManager
