@@ -138,7 +138,7 @@ def test_report_number_of_verifiers(erc20_relay):
     verifiers = ERC20Relay.verifiers
 
     for i in range(10):
-        assert ERC20Relay.functions.numberOfVerifiers().call() == i + len(verifiers)
+        assert ERC20Relay.functions.verifierCount().call() == i + len(verifiers)
         ERC20Relay.functions.addVerifier(int_to_address(i + 1)).transact({'from': owner})
 
 
