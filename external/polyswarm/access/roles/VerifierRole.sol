@@ -28,7 +28,7 @@ contract VerifierRole is VerifierManagerRole {
     }
 
     modifier onlyVerifier() {
-        require(isArbiter(msg.sender));
+        require(isVerifier(msg.sender));
         _;
     }
 

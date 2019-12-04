@@ -5,9 +5,9 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 import "external/polyswarm/access/roles/FeeManagerRole.sol";
-import "external/polyswarm/access/roles/VerifierManagerRole.sol";
+import "external/polyswarm/access/roles/VerifierRole.sol";
 
-contract ERC20Relay is Ownable, FeeManagerRole, VerifierRole, VerifierManagerRole {
+contract ERC20Relay is FeeManagerRole, VerifierRole, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for ERC20;
 
@@ -67,9 +67,6 @@ contract ERC20Relay is Ownable, FeeManagerRole, VerifierRole, VerifierManagerRol
         require(_token != address(0), "Invalid token address");
         require(_verifiers.length >= MINIMUM_VERIFIERS, "Number of verifiers less than minimum");
 
-        // Dummy verifier at index 0
-        verifiers.push(address(0));
-
         for (uint256 i = 0; i < _verifiers.length; i++) {
             addVerifier(_verifiers[i]);
         }
@@ -111,12 +108,12 @@ contract ERC20Relay is Ownable, FeeManagerRole, VerifierRole, VerifierManagerRol
     }
 
     function addVerifier(address account) public onlyVerifierManager {
-        _addVerifier(address);
+        _addVerifier(account);
         fees = calculateFees();
     }
 
     function _removeVerifier(address account) public onlyVerifierManager {
-        _removeVerifier(address );
+        _removeVerifier(account);
         fees = calculateFees();
     }
 
