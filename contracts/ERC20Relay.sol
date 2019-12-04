@@ -112,7 +112,7 @@ contract ERC20Relay is FeeManagerRole, VerifierRole, Ownable {
         fees = calculateFees();
     }
 
-    function _removeVerifier(address account) public onlyVerifierManager {
+    function removeVerifier(address account) public onlyVerifierManager {
         _removeVerifier(account);
         fees = calculateFees();
     }
