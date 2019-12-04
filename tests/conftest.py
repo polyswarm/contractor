@@ -353,6 +353,7 @@ def arbiter_staking(artifacts, eth_tester, web3):
                                        ('network', 'deployer', 'NectarToken', 'BountyRegistry', 'ArbiterStaking'))
     return ArbiterStakingFixture(network, deployer, nectar_token, bounty_registry, arbiter_staking)
 
+
 @pytest.fixture
 def arbiter_long_staking(artifacts, eth_tester, web3):
     chain = Chain.HOMECHAIN

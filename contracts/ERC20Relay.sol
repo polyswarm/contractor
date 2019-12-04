@@ -63,14 +63,8 @@ contract ERC20Relay is FeeManagerRole, VerifierRole, Ownable {
 
     ERC20 private token;
 
-    constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] memory _verifiers) Ownable() public {
+    constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] memory _verifiers) VerifierRole(_verifiers) Ownable() public {
         require(_token != address(0), "Invalid token address");
-        require(_verifiers.length >= MINIMUM_VERIFIERS, "Number of verifiers less than minimum");
-
-        for (uint256 i = 0; i < _verifiers.length; i++) {
-            addVerifier(_verifiers[i]);
-        }
-
         nctEthExchangeRate = _nctEthExchangeRate;
         fees = calculateFees();
 

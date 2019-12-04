@@ -2,8 +2,17 @@ import pytest
 
 from eth_tester.exceptions import TransactionFailed
 from eth_utils import to_checksum_address
+from contractor.steps.ERC20Relay import NCT_ETH_EXCHANGE_RATE
 
 ZERO_HASH = b'\0' * 32
+GAS_PRICE = 20 * 10 ** 9
+ESTIMATED_GAS_PER_VERIFIER = 54301
+ESTIMATED_GAS_PER_WITHDRAWAL = 73458
+
+
+def calculate_fees(verifiers):
+    gas = ESTIMATED_GAS_PER_VERIFIER * verifiers + ESTIMATED_GAS_PER_WITHDRAWAL
+    return gas * GAS_PRICE * NCT_ETH_EXCHANGE_RATE
 
 
 def int_to_address(x):
@@ -115,20 +124,6 @@ def test_should_not_allow_removing_verifiers_if_would_drop_below_minimum(erc20_r
 
     with pytest.raises(TransactionFailed):
         ERC20Relay.functions.removeVerifier(verifier.address).transact({'from': owner})
-
-
-def test_report_active_verifiers(erc20_relay):
-    ERC20Relay = erc20_relay.ERC20Relay
-
-    owner = ERC20Relay.owner
-    verifiers = {v.address for v in ERC20Relay.verifiers}
-
-    assert set(ERC20Relay.functions.activeVerifiers().call()) == verifiers
-
-    ERC20Relay.functions.addVerifier(int_to_address(1)).transact({'from': owner})
-    verifiers.add(int_to_address(1))
-
-    assert set(ERC20Relay.functions.activeVerifiers().call()) == verifiers
 
 
 def test_report_number_of_verifiers(erc20_relay):
@@ -473,3 +468,33 @@ def test_emit_event_flush(erc20_relay):
     flushed = network.wait_and_process_receipt(txhash, ERC20Relay.events.Flush())
     assert flushed is not None
 
+
+def test_fees_set_on_creation(erc20_relay):
+    ERC20Relay = erc20_relay.ERC20Relay
+
+    amount = ERC20Relay.functions.fees().call()
+    assert amount == calculate_fees(3)
+
+
+def test_fees_update_on_verifier_add(erc20_relay):
+    ERC20Relay = erc20_relay.ERC20Relay
+    owner = ERC20Relay.owner
+
+    ERC20Relay.functions.addVerifier(int_to_address(1)).transact({'from': owner})
+    amount = ERC20Relay.functions.fees().call()
+    assert amount == calculate_fees(4)
+
+
+def test_fees_update_on_verifier_remove(erc20_relay):
+    ERC20Relay = erc20_relay.ERC20Relay
+    owner = ERC20Relay.owner
+
+    ERC20Relay.functions.addVerifier(int_to_address(1)).transact({'from': owner})
+    ERC20Relay.functions.addVerifier(int_to_address(2)).transact({'from': owner})
+    amount = ERC20Relay.functions.fees().call()
+    assert amount == calculate_fees(5)
+
+    ERC20Relay.functions.removeVerifier(int_to_address(2)).transact({'from': owner})
+    amount = ERC20Relay.functions.fees().call()
+
+    assert amount == calculate_fees(4)
