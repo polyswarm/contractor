@@ -155,7 +155,7 @@ contract ArbiterStaking is Pausable, Ownable {
      */
     function withdrawableBalanceOf(address addr) public view returns (uint256) {
         uint256 ret = 0;
-        bool deprecated = isDeprecated();
+        bool deprecated = isDeprecateFinished();
 
         if (!deprecated && block.number < stakeDuration) {
             return ret;
@@ -180,7 +180,7 @@ contract ArbiterStaking is Pausable, Ownable {
     function withdraw(uint256 value) public whenNotPaused {
         require(deposits[msg.sender].length > 0, "Cannot withdraw without some deposits.");
         uint256 remaining = value;
-        bool deprecated = isDeprecated();
+        bool deprecated = isDeprecateFinished();
 
         uint256 latest_block = !deprecated ? block.number.sub(stakeDuration) : block.number;
         Deposit[] storage ds = deposits[msg.sender];
@@ -246,7 +246,7 @@ contract ArbiterStaking is Pausable, Ownable {
      *
      * @return true if deprecated block is set and beyond max blocks for a
      */
-    function isDeprecated() public view returns (bool) {
+    function isDeprecateFinished() public view returns (bool) {
         uint256 longest_bounty = registry.MAX_DURATION().add(registry.assertionRevealWindow()).add(registry.arbiterVoteWindow());
         // is registry deprecated  && is arbiter staking NOT being rolled over  && Have all the bounties finished
         return registry.deprecatedBlock() > 0 && !registry.rollover() && block.number >= registry.deprecatedBlock().add(longest_bounty);
