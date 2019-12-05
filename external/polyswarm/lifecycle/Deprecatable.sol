@@ -45,7 +45,7 @@ contract Deprecatable is DeprecatorRole {
     }
 
     /**
-     * Undo deprecate om this contract
+     * Undo deprecate on this contract
      * The re-enables anything disabled by deprecation
      */
     function undeprecate() external onlyDeprecator whenDeprecated {
