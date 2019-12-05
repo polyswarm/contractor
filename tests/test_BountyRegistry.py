@@ -209,14 +209,93 @@ def test_should_allow_owner_to_perform_window_management_if_no_manager_set(bount
     BountyRegistry.functions.setWindows(3, 3).transact({'from': window_manager.address})
 
 
+def test_can_only_deprecate_when_not_deprecated(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    txhash = BountyRegistry.functions.deprecate(True).transact({"from": BountyRegistry.owner})
+    network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+
+    with pytest.raises(TransactionFailed):
+        BountyRegistry.functions.deprecate(False).transact({"from": BountyRegistry.owner})
+
+    txhash = BountyRegistry.functions.undeprecate().transact({"from": BountyRegistry.owner})
+    network.wait_and_process_receipt(txhash, BountyRegistry.events.Undeprecated())
+
+    txhash = BountyRegistry.functions.deprecate(True).transact({"from": BountyRegistry.owner})
+    network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+
+
+def test_deprecate_block_set(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    txhash = BountyRegistry.functions.deprecate(True).transact({"from": BountyRegistry.owner})
+    deprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+
+    deprecatedBlock = BountyRegistry.functions.deprecatedBlock().call()
+    rollover = BountyRegistry.functions.rollover().call()
+    assert deprecatedBlock > 0 and rollover
+
+
+def test_emit_event_deprecate_rollover(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    txhash = BountyRegistry.functions.deprecate(True).transact({"from": BountyRegistry.owner})
+
+    deprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+    assert deprecate is not None and deprecate[0]
+
+
 def test_emit_event_deprecate(bounty_registry):
     BountyRegistry = bounty_registry.BountyRegistry
     network = bounty_registry.network
 
-    txhash = BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
+    txhash = BountyRegistry.functions.deprecate(False).transact({"from": BountyRegistry.owner})
 
     deprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
     assert deprecate is not None
+
+
+def test_can_only_undeprecate_when_deprecated(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    with pytest.raises(TransactionFailed):
+        BountyRegistry.functions.undeprecate().transact({"from": BountyRegistry.owner})
+
+    txhash = BountyRegistry.functions.deprecate(True).transact({"from": BountyRegistry.owner})
+    network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+
+    txhash = BountyRegistry.functions.undeprecate().transact({"from": BountyRegistry.owner})
+    network.wait_and_process_receipt(txhash, BountyRegistry.events.Undeprecated())
+
+
+def test_emit_event_undeprecate(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    txhash = BountyRegistry.functions.deprecate(False).transact({"from": BountyRegistry.owner})
+    network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+    txhash = BountyRegistry.functions.undeprecate().transact({"from": BountyRegistry.owner})
+
+    undeprecate = network.wait_and_process_receipt(txhash, BountyRegistry.events.Undeprecated())
+    assert undeprecate is not None
+
+
+def test_undeprecate_resets_values(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+    network = bounty_registry.network
+
+    txhash = BountyRegistry.functions.deprecate(True).transact({"from": BountyRegistry.owner})
+    network.wait_and_process_receipt(txhash, BountyRegistry.events.Deprecated())
+    txhash = BountyRegistry.functions.undeprecate().transact({"from": BountyRegistry.owner})
+    network.wait_and_process_receipt(txhash, BountyRegistry.events.Undeprecated())
+
+    deprecatedBlock = BountyRegistry.functions.deprecatedBlock().call()
+    rollover = BountyRegistry.functions.rollover().call()
+    assert deprecatedBlock == 0 and not rollover
 
 
 def test_post_bounty(bounty_registry):
@@ -280,7 +359,7 @@ def test_post_bounty_deprecated(bounty_registry):
     uri = random_artifact_uri()
     amount = 10 * 10 ** 18
 
-    BountyRegistry.functions.deprecate().transact({"from": BountyRegistry.owner})
+    BountyRegistry.functions.deprecate(False).transact({"from": BountyRegistry.owner})
 
     with pytest.raises(TransactionFailed):
         post_bounty(bounty_registry, ambassador.address, guid=guid, artifact_type=0, uri=uri, amount=amount)

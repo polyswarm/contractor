@@ -9,7 +9,7 @@ def parse_requirements():
 
 setup(
     name='contractor',
-    version='0.2.0',
+    version='0.3.0',
     description='Utilities for Ethereum smart contract development and deployment',
     author='PolySwarm Developers',
     author_email='info@polyswarm.io',

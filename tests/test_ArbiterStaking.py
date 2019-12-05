@@ -181,7 +181,7 @@ def test_allow_withdrawals_after_deprecation(arbiter_long_staking, eth_tester):
     with pytest.raises(TransactionFailed):
         ArbiterStaking.functions.withdraw(1).transact({'from': ArbiterStaking.arbiter.address})
 
-    BountyRegistry.functions.deprecate().transact({'from': BountyRegistry.owner})
+    BountyRegistry.functions.deprecate(False).transact({'from': BountyRegistry.owner})
 
     eth_tester.mine_blocks(BountyRegistry.functions.MAX_DURATION().call())
     eth_tester.mine_blocks(BountyRegistry.functions.assertionRevealWindow().call())
