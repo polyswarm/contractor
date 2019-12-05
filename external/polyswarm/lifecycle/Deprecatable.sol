@@ -49,7 +49,7 @@ contract Deprecatable is DeprecatorRole {
      * The re-enables anything disabled by deprecation
      */
     function undeprecate() external onlyDeprecator whenDeprecated {
-        deprecatedBlock = block.number;
+        deprecatedBlock = 0;
         rollover = false;
         emit Undeprecated();
     }
