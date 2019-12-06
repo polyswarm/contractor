@@ -16,7 +16,8 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "1.6.0";
+    string public constant VERSION = "1.6.1";
+    uint public constant PAGE_SIZE = 25;
 
     enum ArtifactType {FILE, URL, _END}
 
@@ -123,7 +124,7 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
 
     uint256 public arbiterVoteWindow;
     uint256 public assertionRevealWindow;
-    uint128[] public bountyGuids;
+    uint128[] private bountyGuids;
     mapping(uint128 => Bounty) public bountiesByGuid;
     mapping(uint128 => Assertion[]) public assertionsByGuid;
     mapping(uint128 => uint256[][]) public assertionBidByGuid;
@@ -226,6 +227,27 @@ contract BountyRegistry is ArbiterRole, FeeManagerRole, WindowManagerRole, Depre
     function getBids(uint128 bountyGuid, uint256 assertionId) external view returns (uint256[] memory bids) {
         require(bountiesByGuid[bountyGuid].author != address(0) && assertionBidByGuid[bountyGuid].length >= assertionId, "");
         bids = assertionBidByGuid[bountyGuid][assertionId];
+    }
+
+    /**
+     * Gets the next up to 25 bounties from the starting position, inclusive
+     * @param page page of bountyGuids to read
+     */
+    function getBountyGuids(uint256 page) external view returns (uint128[] memory) {
+        uint256 index = page.mul(PAGE_SIZE);
+        if (bountyGuids.length <= index) {
+            return new uint128[](0);
+        }
+
+        uint size = PAGE_SIZE;
+        if (bountyGuids.length.sub(index) < PAGE_SIZE) {
+            size = bountyGuids.length.sub(index);
+        }
+        uint128[] memory guids = new uint128[](size);
+        for (uint i = 0; i < size; i++) {
+            guids[i] = bountyGuids[i.add(index)];
+        }
+        return guids;
     }
 
     /**

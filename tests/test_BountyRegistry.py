@@ -2297,3 +2297,47 @@ def test_get_bids_bad_assertion(bounty_registry, eth_tester):
     assert BountyRegistry.functions.getBids(guid, 0).call() == bid_minimum
     with pytest.raises(TransactionFailed):
         BountyRegistry.functions.getBids(guid, 1).call()
+
+
+def test_get_first_25_bounties(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    ambassador = BountyRegistry.ambassadors[0]
+    amount = 10 * 10 ** 18 * 2
+    duration = 10
+
+    guids = [post_bounty(bounty_registry, ambassador.address, amount=amount, num_artifacts=2, duration=duration)[0]
+             for _ in range(50)]
+    bounty_guids = BountyRegistry.functions.getBountyGuids(0).call()
+    assert len(bounty_guids) == 25
+    assert all([created == found for created, found in zip(guids[:25], bounty_guids)])
+
+
+def test_get_second_25_bounties(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    ambassador = BountyRegistry.ambassadors[0]
+    amount = 10 * 10 ** 18 * 2
+    duration = 10
+
+    guids = [post_bounty(bounty_registry, ambassador.address, amount=amount, num_artifacts=2, duration=duration)[0]
+             for _ in range(50)]
+
+    bounty_guids = BountyRegistry.functions.getBountyGuids(1).call()
+    assert len(bounty_guids) == 25
+    assert all([created == found for created, found in zip(guids[25:], bounty_guids)])
+
+
+def test_get_partial_bounties(bounty_registry):
+    BountyRegistry = bounty_registry.BountyRegistry
+
+    ambassador = BountyRegistry.ambassadors[0]
+    amount = 10 * 10 ** 18 * 2
+    duration = 10
+
+    guids = [post_bounty(bounty_registry, ambassador.address, amount=amount, num_artifacts=2, duration=duration)[0]
+             for _ in range(55)]
+
+    bounty_guids = BountyRegistry.functions.getBountyGuids(2).call()
+    assert len(bounty_guids) == 5
+    assert all([created == found for created, found in zip(guids[50:], bounty_guids)])
