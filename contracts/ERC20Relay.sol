@@ -4,32 +4,47 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
+import "external/polyswarm/access/roles/FeeManagerRole.sol";
+import "external/polyswarm/access/roles/VerifierRole.sol";
 
-contract ERC20Relay is Ownable {
+contract ERC20Relay is FeeManagerRole, VerifierRole, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for ERC20;
 
     string public constant VERSION = "1.2.0";
 
-    /* Managers */
-    address public verifierManager;
-    address public feeManager;
-
-    event NewVerifierManager(
-        address indexed previousManager,
-        address indexed newManager
+    event AnchoredBlock(
+        bytes32 indexed blockHash,
+        uint256 indexed blockNumber
     );
-    event NewFeeManager(
-        address indexed previousManager,
-        address indexed newManager
+    event ContestedBlock(
+        bytes32 indexed blockHash,
+        uint256 indexed blockNumber
     );
     event Flush();
+    event FeesChanged(
+        uint256 newFees
+    );
+    event WithdrawalProcessed(
+        address indexed destination,
+        uint256 amount,
+        bytes32 txHash,
+        bytes32 blockHash,
+        uint256 blockNumber
+    );
 
-    /* Verifiers */
-    uint256 constant MINIMUM_VERIFIERS = 3;
-    uint256 public requiredVerifiers;
-    address[] private verifiers;
-    mapping (address => uint256) private verifierAddressToIndex;
+    struct Withdrawal {
+        address destination;
+        uint256 amount;
+        bool processed;
+    }
+
+    /* Sidechain anchoring */
+    struct Anchor {
+        bytes32 blockHash;
+        uint256 blockNumber;
+        bool processed;
+    }
 
     /* Withdrawals */
     uint256 constant GAS_PRICE = 20 * 10 ** 9;
@@ -39,68 +54,17 @@ contract ERC20Relay is Ownable {
     uint256 public fees;
     address public feeWallet;
     uint256 public flushBlock;
-
-    struct Withdrawal {
-        address destination;
-        uint256 amount;
-        bool processed;
-    }
-
     mapping (bytes32 => Withdrawal) public withdrawals;
     mapping (bytes32 => address[]) public withdrawalApprovals;
 
-    event WithdrawalProcessed(
-        address indexed destination,
-        uint256 amount,
-        bytes32 txHash,
-        bytes32 blockHash,
-        uint256 blockNumber
-    );
-
-    event FeesChanged(
-        uint256 newFees
-    );
-
-    /* Sidechain anchoring */
-    struct Anchor {
-        bytes32 blockHash;
-        uint256 blockNumber;
-        bool processed;
-    }
-
+    /* Anchors */
     Anchor[] public anchors;
     mapping (bytes32 => address[]) public anchorApprovals;
 
-    event AnchoredBlock(
-        bytes32 indexed blockHash,
-        uint256 indexed blockNumber
-    );
-
-    event ContestedBlock(
-        bytes32 indexed blockHash,
-        uint256 indexed blockNumber
-    );
-
     ERC20 private token;
 
-    constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] memory _verifiers) public {
+    constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] memory _verifiers) VerifierRole(_verifiers) Ownable() public {
         require(_token != address(0), "Invalid token address");
-        require(_verifiers.length >= MINIMUM_VERIFIERS, "Number of verifiers less than minimum");
-
-        // If set to address(0), onlyVerifierManager and onlyFeeManager are equivalent to onlyOwner
-        verifierManager = address(0);
-        feeManager = address(0);
-
-        // Dummy verifier at index 0
-        verifiers.push(address(0));
-
-        for (uint256 i = 0; i < _verifiers.length; i++) {
-            verifiers.push(_verifiers[i]);
-            verifierAddressToIndex[_verifiers[i]] = i.add(1);
-        }
-
-        requiredVerifiers = calculateRequiredVerifiers();
-
         nctEthExchangeRate = _nctEthExchangeRate;
         fees = calculateFees();
 
@@ -114,34 +78,6 @@ contract ERC20Relay is Ownable {
         revert("Do not allow sending Eth to this contract");
     }
 
-    modifier onlyVerifierManager() {
-        if (verifierManager == address(0)) {
-            require(msg.sender == owner(), "Not a verifier manager");
-        } else {
-            require(msg.sender == verifierManager, "Not a verifier manager");
-        }
-        _;
-    }
-
-    function setVerifierManager(address newVerifierManager) external onlyOwner {
-        emit NewVerifierManager(verifierManager, newVerifierManager);
-        verifierManager = newVerifierManager;
-    }
-
-    modifier onlyFeeManager() {
-        if (feeManager == address(0)) {
-            require(msg.sender == owner(), "Not a fee manager");
-        } else {
-            require(msg.sender == feeManager, "Not a fee manager");
-        }
-        _;
-    }
-
-    function setFeeManager(address newFeeManager) external onlyOwner {
-        emit NewFeeManager(feeManager, newFeeManager);
-        feeManager = newFeeManager;
-    }
-
     /**
      * Triggers a Flush event.
      * If called on a sidechain, this will trigger relay to withdrawal all funds out of the homechain contract
@@ -152,64 +88,6 @@ contract ERC20Relay is Ownable {
         emit Flush();
     }
 
-    function addVerifier(address addr) external onlyVerifierManager {
-        require(addr != address(0), "Invalid verifier address");
-        require(verifierAddressToIndex[addr] == 0, "Address is already a verifier");
-
-        uint256 index = verifiers.push(addr);
-        verifierAddressToIndex[addr] = index.sub(1);
-
-        requiredVerifiers = calculateRequiredVerifiers();
-        fees = calculateFees();
-    }
-
-    function removeVerifier(address addr) external onlyVerifierManager {
-        require(addr != address(0), "Invalid verifier address");
-        require(verifierAddressToIndex[addr] != 0, "Address is not a verifier");
-        require(verifiers.length.sub(1) > MINIMUM_VERIFIERS, "Removing verifier would put number of verifiers below minimum");
-
-        uint256 index = verifierAddressToIndex[addr];
-        require(verifiers[index] == addr, "Verifier address not present in verifiers array");
-        verifiers[index] = verifiers[verifiers.length.sub(1)];
-        verifierAddressToIndex[verifiers[verifiers.length.sub(1)]] = index;
-        delete verifierAddressToIndex[addr];
-        verifiers.length = verifiers.length.sub(1);
-
-        requiredVerifiers = calculateRequiredVerifiers();
-        fees = calculateFees();
-    }
-
-    function activeVerifiers() public view returns (address[] memory) {
-        require(verifiers.length > 0, "Invalid number of verifiers");
-
-        address[] memory ret = new address[](verifiers.length.sub(1));
-
-        // Skip dummy verifier at index 0
-        for (uint256 i = 1; i < verifiers.length; i++) {
-            ret[i.sub(1)] = verifiers[i];
-        }
-
-        return ret;
-    }
-
-    function numberOfVerifiers() public view returns (uint256) {
-        require(verifiers.length > 0, "Invalid number of verifiers");
-        return verifiers.length.sub(1);
-    }
-
-    function calculateRequiredVerifiers() internal view returns(uint256) {
-        return numberOfVerifiers().mul(2).div(3);
-    }
-
-    function isVerifier(address addr) public view returns (bool) {
-        return verifierAddressToIndex[addr] != 0 && verifiers[verifierAddressToIndex[addr]] == addr;
-    }
-
-    modifier onlyVerifier() {
-        require(isVerifier(msg.sender), "msg.sender is not verifier");
-        _;
-    }
-
     function setNctEthExchangeRate(uint256 _nctEthExchangeRate) external onlyFeeManager {
         nctEthExchangeRate = _nctEthExchangeRate;
         fees = calculateFees();
@@ -217,10 +95,20 @@ contract ERC20Relay is Ownable {
         emit FeesChanged(fees);
     }
 
-    function calculateFees() internal view returns (uint256) {
-        uint256 estimatedGas = ESTIMATED_GAS_PER_VERIFIER.mul(numberOfVerifiers())
+    function calculateFees() private view returns (uint256) {
+        uint256 estimatedGas = ESTIMATED_GAS_PER_VERIFIER.mul(verifierCount)
             .add(ESTIMATED_GAS_PER_WITHDRAWAL);
         return estimatedGas.mul(GAS_PRICE).mul(nctEthExchangeRate);
+    }
+
+    function addVerifier(address account) public onlyVerifierManager {
+        _addVerifier(account);
+        fees = calculateFees();
+    }
+
+    function removeVerifier(address account) public onlyVerifierManager {
+        _removeVerifier(account);
+        fees = calculateFees();
     }
 
     function approveWithdrawal(
