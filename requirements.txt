@@ -1,7 +1,7 @@
 click==7.0
 colorama==0.4.1
 ethereum==2.3.2
-eth-account==0.3.0
+eth-account==0.5.9
 hexbytes==0.1.0
 ipython==7.3.0
 requests==2.21.0
